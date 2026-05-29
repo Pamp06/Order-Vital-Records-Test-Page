@@ -39,7 +39,6 @@ Before you begin, ensure you have the following installed on your machine:
 4. **Open your browser:**
    Navigate to [http://localhost:3000](http://localhost:3000) to view the homepage.
    - **Form Flow:** [http://localhost:3000/form-flow](http://localhost:3000/form-flow)
-   - **Admin Dashboard:** [http://localhost:3000/admin/submissions](http://localhost:3000/admin/submissions)
 
 > **Note on Database and PDFs**: The SQLite database (`database.sqlite`) and the generated PDFs (under `public/submissions/`) are automatically created upon the first successful submission. No manual database setup is required!
 
