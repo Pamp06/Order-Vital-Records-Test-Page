@@ -68,3 +68,10 @@
 .map-container path:hover {
   fill: var(--color-brand-accent, #2563eb) !important;
 }
+
+/* Force US Map SVG to be fully fluid responsive on mobile */
+.map-container svg {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100%;
+}

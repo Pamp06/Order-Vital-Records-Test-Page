@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, ChangeEvent } from 'react';
+import { useState, ChangeEvent, useEffect } from 'react';
 import Link from 'next/link';
 
 const USAMap = require('react-usa-map').default || require('react-usa-map');
@@ -14,6 +14,19 @@ export default function HomePage() {
     }
   };
 
+  // Add viewBox dynamically so the SVG scales perfectly on mobile
+  useEffect(() => {
+    const svg = document.querySelector('.map-container svg');
+    if (svg) {
+      if (!svg.getAttribute('viewBox')) {
+        svg.setAttribute('viewBox', '0 0 959 593');
+      }
+      svg.setAttribute('width', '100%');
+      svg.setAttribute('height', '100%');
+      svg.setAttribute('style', 'max-width: 100%; height: auto;');
+    }
+  }, []);
+
   const ComboSync = (event: ChangeEvent<HTMLSelectElement>) => {
     setSelState(event.target.value);
   };
@@ -25,7 +38,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-[#0f172a] font-sans antialiased">
+    <div className="min-h-screen bg-white text-[#0f172a] font-sans antialiased overflow-x-hidden">
 
       {/* HEADER/NAVBAR */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-xs">
@@ -90,20 +103,20 @@ export default function HomePage() {
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            <img src="/flag-us.png" alt="US Vital Badge" className="h-18 object-contain" />
+          <div className="space-y-6 flex flex-col items-center text-center md:items-start md:text-left">
+            <img src="/flag-us.png" alt="US Vital Badge" className="h-16 md:h-18 object-contain" />
             <div className="space-y-2">
               <span className="text-[#2563eb] text-xs font-bold uppercase tracking-wider block">
                 US Vital Records Certificates
               </span>
               <h1 className="text-4xl lg:text-5xl font-black text-[#0f172a] tracking-tight leading-tight">
-                Order your Vital <br />
+                Order your Vital <br className="hidden sm:block" />
                 Records online
               </h1>
             </div>
 
             <p className="text-sm text-slate-500 max-w-sm leading-relaxed">
-              Simple. Secure. Delivered to your door. <br />
+              Simple. Secure. Delivered to your door. <br className="hidden sm:block" />
               Available in all 50 States.
             </p>
           </div>
@@ -202,11 +215,11 @@ export default function HomePage() {
 
         <div className="max-w-5xl mx-auto mt-16 pt-8 border-t border-slate-100 px-4">
           <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12 opacity-80 filter grayscale hover:grayscale-0 transition-all duration-300">
-            <img src="/agencies/tn-health.png" alt="TN Dept of Health" className="h-16 object-contain" />
-            <img src="/agencies/ok-health.png" alt="Oklahoma State Department of Health" className="h-16 object-contain" />
-            <img src="/agencies/fl-health.png" alt="Florida Health" className="h-16 object-contain" />
-            <img src="/agencies/wa-health.png" alt="Washington State Dept of Health" className="h-16 object-contain" />
-            <img src="/agencies/ia-hhs.png" alt="Iowa HHS" className="h-16 object-contain" />
+            <img src="/agencies/tn-health.png" alt="TN Dept of Health" className="h-10 md:h-16 object-contain" />
+            <img src="/agencies/ok-health.png" alt="Oklahoma State Department of Health" className="h-10 md:h-16 object-contain" />
+            <img src="/agencies/fl-health.png" alt="Florida Health" className="h-10 md:h-16 object-contain" />
+            <img src="/agencies/wa-health.png" alt="Washington State Dept of Health" className="h-10 md:h-16 object-contain" />
+            <img src="/agencies/ia-hhs.png" alt="Iowa HHS" className="h-10 md:h-16 object-contain" />
           </div>
         </div>
       </section>
@@ -332,7 +345,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="w-full max-w-max mx-auto pt-6 p-6 map-container">
+          <div className="w-full max-w-4xl mx-auto pt-6 p-4 md:p-6 map-container">
             <USAMap
               customize={PerState}
               onClick={MapClick}
@@ -478,8 +491,8 @@ export default function HomePage() {
             Get your Certificate today
           </h2>
           <p className="text-xs text-slate-700 font-medium leading-relaxed max-w-sm mx-auto">
-            Begin your simple, secure application process today. <br />
-            Questions? Call us at <span className="text-[#2563eb] font-bold cursor-pointer">(833) 366-3409</span> or <br />
+            Begin your simple, secure application process today. <br className="hidden sm:block" />
+            Questions? Call us at <span className="text-[#2563eb] font-bold cursor-pointer">(833) 366-3409</span> or <br className="hidden sm:block" />
             email <span className="text-[#2563eb] font-bold cursor-pointer">support@ordervitalrecords.com</span>
           </p>
 
