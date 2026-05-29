@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
+import fs from 'fs/promises';
+import path from 'path';
+import { getDb } from '../../../lib/db';
 
 export async function POST(req: Request) {
     try {
@@ -501,6 +504,63 @@ export async function POST(req: Request) {
         });
 
         await browser.close();
+
+        // 1. Save generated PDF to the filesystem inside public/submissions/
+        let pdfRelativePath = "";
+        try {
+            const submissionsDir = path.resolve(process.cwd(), 'public', 'submissions');
+            await fs.mkdir(submissionsDir, { recursive: true });
+            const pdfFileName = `Receipt-${submissionId}.pdf`;
+            const pdfFilePath = path.join(submissionsDir, pdfFileName);
+            await fs.writeFile(pdfFilePath, pdfBuffer);
+            pdfRelativePath = `/submissions/${pdfFileName}`;
+        } catch (fsError) {
+            console.error("Failed to save PDF to filesystem:", fsError);
+        }
+
+        // 2. Save complete submission details to the SQLite database
+        try {
+            const db = await getDb();
+
+            const userInfo = JSON.stringify({
+                applicantName,
+                applicantEmail,
+                applicantPhone,
+                relationship,
+                subjectName,
+                fatherName,
+                motherName
+            });
+
+            const shippingDetails = JSON.stringify({
+                shipStreet,
+                shipCity,
+                shipState,
+                shipZip,
+                shipCountry,
+                shippingMethod,
+                processingSpeed
+            });
+
+            const additionalDetails = JSON.stringify({
+                reason,
+                eventDay,
+                eventMonth,
+                eventYear,
+                eventCity,
+                eventState,
+                fees
+            });
+
+            await db.run(
+                `INSERT OR REPLACE INTO submissions (id, user_info, certificate_type, shipping_details, additional_details, pdf_path)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [submissionId, userInfo, certType, shippingDetails, additionalDetails, pdfRelativePath]
+            );
+        } catch (dbError) {
+            // Log database error but do not block the user response, ensuring high resilience
+            console.error("Database save error:", dbError);
+        }
 
         return new NextResponse(pdfBuffer as any, {
             headers: {
