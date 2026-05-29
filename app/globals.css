@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+:root {
+  --color-brand-blue: #3067ff;
+  --color-brand-accent: #3e78f5;
+  --color-brand-light: #f8fafc;
+  --color-brand-dark: #0f172a;
+  --color-brand-gray: #64748b;
+}
+
+.input-form {
+  background-color: var(--color-brand-light);
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-brand-dark);
+  outline: none;
+  width: 100%;
+  transition: all 0.2s;
+}
+.input-form:focus {
+  border-color: var(--color-brand-accent);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px #dbeafe;
+}
+
+.btn-primary {
+  background-color: var(--color-brand-blue);
+  color: #ffffff;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.1);
+}
+.btn-primary:hover {
+  background-color: var(--color-brand-accent);
+}
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  background-color: #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+}
+.btn-secondary:hover {
+  background-color: #e2e8f0;
+}
+
+/* MAP STYLES */
+.map-container path {
+  transition: fill 0.2s ease, stroke 0.2s ease;
+  cursor: pointer;
+  stroke: #ffffff !important; 
+  stroke-width: 1.5 !important;
+}
+
+.map-container path:hover {
+  fill: var(--color-brand-accent, #2563eb) !important;
+}
