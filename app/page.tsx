@@ -2,6 +2,7 @@
 
 import { useState, ChangeEvent, useEffect } from 'react';
 import Link from 'next/link';
+import Header from '../components/Header';
 
 const USAMap = require('react-usa-map').default || require('react-usa-map');
 
@@ -41,41 +42,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-white text-[#0f172a] font-sans antialiased overflow-x-hidden">
 
       {/* HEADER/NAVBAR */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-xs">
-        <div className="w-full max-w-none mx-0 px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative">
-
-          {/* LOGO */}
-          <Link href="/" className="flex items-center gap-2 select-none shrink-0 z-10 hover:opacity-90 transition-opacity">
-            <img src="/flag-us.png" alt="ORDER VITAL RECORDS" className="h-6 object-contain" />
-            <span className="text-base font-black tracking-tight text-[#0f172a] hidden sm:inline">
-              ORDER VITAL RECORDS
-            </span>
-          </Link>
-
-          {/* NAV BUTTONS */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 absolute left-1/2 -translate-x-1/2">
-            <Link href="/certificates" className="hover:text-[#2563eb] transition-colors">
-              Certificates
-            </Link>
-            <a href="#how-it-works" className="hover:text-[#2563eb] transition-colors">How It works</a>
-            <a href="#states" className="hover:text-[#2563eb] transition-colors">Search States</a>
-            <a href="#faq" className="hover:text-[#2563eb] transition-colors">Support</a>
-            <a href="#benefits" className="hover:text-[#2563eb] transition-colors">Pricing</a>
-            <a href="#contact" className="hover:text-[#2563eb] transition-colors">Contact</a>
-          </nav>
-
-          {/* RIGHT BUTTONS */}
-          <div className="flex items-center gap-4 shrink-0 z-10">
-            <Link href="/certificates" className="btn-primary py-2 px-4 text-xs font-bold shadow-xs">
-              Start Order &gt;
-            </Link>
-            <span className="text-xs font-bold text-slate-600 cursor-pointer hover:text-[#2563eb] transition-colors">
-              Log In &gt;
-            </span>
-          </div>
-
-        </div>
-      </header>
+      <Header />
 
       {/* HERO SECTION*/}
       <section className="relative bg-linear-to-b from-[#e0ebf8]/40 via-[#f4f8fc]/20 to-white py-16 lg:py-24 border-b border-slate-100 overflow-hidden">
