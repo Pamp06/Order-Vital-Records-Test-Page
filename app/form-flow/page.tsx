@@ -9,6 +9,7 @@ import { useAuth } from '../../components/AuthProvider';
 export default function BirthFlowPage() {
     const [step, setStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formError, setFormError] = useState("");
     const [submissionDetails, setSubmissionDetails] = useState<{
         id: string;
         date: string;
@@ -26,54 +27,47 @@ export default function BirthFlowPage() {
 
     // FORM STATE
     const [formData, setFormData] = useState({
-        certType: "Birth",
-        eventState: "TN",
-        reason: "Passport",
-        applicantName: "",
-        applicantEmail: "",
-        applicantPhone: "",
-
-        relationship: "Self",
-        subjectName: "",
-        eventDay: "15",
-        eventMonth: "May",
-        eventYear: "1995",
-        eventCity: "",
-        fatherName: "",
-        motherName: "",
-
-        shipStreet: "",
-        shipCity: "",
-        shipState: "TN",
-        shipZip: "",
-        shipCountry: "United States",
+        // Pricing & Shipping (Step 1)
+        number_of_copies: 1,
+        paternity_copies: 0,
         shippingMethod: "standard",
         processingSpeed: "standard",
+        mail_name: "",
+        mail_address: "",
+        mail_city_state: "",
+        mail_zip: "",
+        phone: "",
+        email: "",
 
+        // Payment (Step 2)
         cardName: "",
         cardNumber: "",
         cardExpiry: "",
         cardCvc: "",
-        agreedToTerms: false
+
+        // Official Application (Step 3)
+        first_name: "",
+        middle_name: "",
+        last_name: "",
+        name_changed: false,
+        original_name: "",
+        dob_month: "",
+        dob_day: "",
+        dob_year: "",
+        sex: "Male",
+        birth_city: "",
+        birth_county: "",
+        birth_state: "TN",
+        birth_country: "",
+        hospital: "",
+        father_name: "",
+        mother_maiden_name: "",
+        mother_last_name_at_birth: "",
+        older_sibling: "",
+        younger_sibling: "",
+        relationship: "",
+        purpose: ""
     });
-
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            const params = new URLSearchParams(window.location.search);
-            const type = params.get("type");
-            const state = params.get("state");
-
-            if (type) {
-                const formattedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-                if (["Birth", "Marriage", "Divorce", "Death"].includes(formattedType)) {
-                    setFormData(prev => ({ ...prev, certType: formattedType }));
-                }
-            }
-            if (state) {
-                setFormData(prev => ({ ...prev, eventState: state.toUpperCase() }));
-            }
-        }
-    }, []);
 
     const handleInputChange = (field: string, value: any) => {
         setFormData(prev => ({
@@ -83,57 +77,53 @@ export default function BirthFlowPage() {
     };
 
     const nextStep = () => {
-        if (step < 4) setStep(step + 1);
+        setFormError("");
+        if (step === 1) {
+            if (!formData.mail_name || !formData.email || !formData.phone || !formData.mail_address || !formData.mail_city_state || !formData.mail_zip) {
+                setFormError("Please fill out all Applicant / Mailing Information fields before proceeding.");
+                return;
+            }
+        } else if (step === 2) {
+            if (!formData.cardName || !formData.cardNumber || !formData.cardExpiry || !formData.cardCvc) {
+                setFormError("Please fill out all payment details before proceeding.");
+                return;
+            }
+        }
+
+        if (step < 3) setStep(step + 1);
     };
 
     const prevStep = () => {
+        setFormError("");
         if (step > 1) setStep(step - 1);
     };
 
     // COST CALCULATOR
-    const stateCertificateFee = 20.00;
+    const stateFee = (formData.number_of_copies * 15.00) + (formData.paternity_copies * 5.00);
     const platformFee = 19.99;
-
-    const getShippingCost = () => {
-        return formData.shippingMethod === "express" ? 45.00 : 15.00;
-    };
-
-    const getProcessingCost = () => {
-        return formData.processingSpeed === "expedited" ? 25.00 : 0.00;
-    };
-
-    const totalFee = stateCertificateFee + platformFee + getShippingCost() + getProcessingCost();
-
-    const getCertTypeName = () => {
-        if (formData.certType === "Birth") return "Birth Certificate";
-        if (formData.certType === "Marriage") return "Marriage Record";
-        if (formData.certType === "Divorce") return "Divorce Decree";
-        if (formData.certType === "Death") return "Death Record";
-        return "Vital Record";
-    };
-
-    const getStepTitle = () => {
-        if (step === 1) return "Applicant & Request";
-        if (step === 2) return "Record Details";
-        if (step === 3) return "Shipping & Speed";
-        if (step === 4) return "Checkout";
-        return "Order Confirmed";
-    };
+    const shippingCost = formData.shippingMethod === "express" ? 45.00 : 15.00;
+    const processingCost = formData.processingSpeed === "expedited" ? 25.00 : 0.00;
+    const totalFee = stateFee + platformFee + shippingCost + processingCost;
 
     const handleSubmit = async () => {
+        setFormError("");
+        // Validate Step 3 fields - Only strictly necessary ones
+        if (!formData.first_name || !formData.last_name || !formData.dob_month || !formData.dob_day || !formData.dob_year ||
+            !formData.birth_city || !formData.mother_maiden_name || !formData.relationship || !formData.purpose) {
+            setFormError("Please complete all required fields (Name, DOB, City of Birth, Mother's Maiden Name, Relationship, and Purpose).");
+            return;
+        }
+
         if (isSubmitting) return;
         setIsSubmitting(true);
 
         try {
-            // 1. Generate unique submission ID
             const randomId = Math.floor(10000 + Math.random() * 90000);
-            const subId = `OVR-2026-${randomId}`;
+            const subId = `OVR-TN-${randomId}`;
 
-            // 2. Format submission date
             const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
             const subDate = new Date().toLocaleDateString('en-US', options);
 
-            // 3. Request PDF generation
             const response = await fetch('/api/generate-pdf', {
                 method: 'POST',
                 headers: {
@@ -144,52 +134,42 @@ export default function BirthFlowPage() {
                     submissionDate: subDate,
                     ...formData,
                     fees: {
-                        stateFee: stateCertificateFee,
-                        platformFee: platformFee,
-                        shippingCost: getShippingCost(),
-                        processingCost: getProcessingCost(),
+                        stateFee,
+                        platformFee,
+                        shippingCost,
+                        processingCost,
                         total: totalFee
                     }
                 }),
             });
 
             if (!response.ok) {
-                throw new Error("Failed to generate receipt PDF");
+                throw new Error("Failed to generate application PDF");
             }
 
-            // 4. Get response blob and create temporary download URL
             const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
+            const blobUrl = URL.createObjectURL(blob);
 
-            // 5. Trigger download
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = `Receipt-${subId}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // 6. Set submission details and move to success step
             setSubmissionDetails({
                 id: subId,
                 date: subDate,
                 pdfBlobUrl: blobUrl
             });
+            setStep(4);
 
-            setStep(5);
         } catch (error) {
-            console.error("Submission error:", error);
-            alert("There was an error processing your order. Please try again.");
+            console.error(error);
+            alert("There was an error processing your application. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleReDownload = () => {
+    const handleDownload = () => {
         if (submissionDetails?.pdfBlobUrl) {
             const link = document.createElement('a');
             link.href = submissionDetails.pdfBlobUrl;
-            link.download = `Receipt-${submissionDetails.id}.pdf`;
+            link.download = `Application-${submissionDetails.id}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -205,28 +185,30 @@ export default function BirthFlowPage() {
         );
     }
 
+    // Modern input styling for Steps 1 & 2
+    const inputClassModern = "w-full bg-slate-50 border-2 border-slate-300 shadow-sm rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-800 focus:bg-white focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 hover:border-slate-400 transition-all outline-none";
+
+    // Paper input styling for Step 3
+    const inputClassPaper = "border-b-2 border-slate-300 bg-transparent outline-none grow px-1 font-normal font-mono text-[13px] focus:border-blue-500 focus:bg-blue-50/30 hover:border-slate-400 transition-colors";
+
     return (
         <div className="min-h-screen bg-linear-to-b from-[#e0ebf8]/40 via-[#f4f8fc]/20 to-[#f4f8fc]/60 text-[#0f172a] font-sans antialiased pb-20">
-
-            {/* HEADER/NAVBAR */}
             <Header />
 
-            {/* FLOW CONTENT AREA */}
             <div className="max-w-4xl mx-auto px-4 pt-12 space-y-8 relative z-10">
-                {step < 5 && (
-                    <div className="max-w-xl mx-auto flex items-center justify-between relative px-2">
+                {step < 4 && (
+                    <div className="max-w-2xl mx-auto flex items-center justify-between relative px-2 mb-10">
                         <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-0.5 bg-slate-200 z-0">
                             <div
                                 className="h-full bg-blue-500 transition-all duration-500 ease-in-out"
-                                style={{ width: `${Math.min((step - 1) * 33.33, 100)}%` }}
+                                style={{ width: `${Math.min((step - 1) * 50, 100)}%` }}
                             />
                         </div>
 
                         {[
-                            { id: 1, label: "Applicant & Request" },
-                            { id: 2, label: "Record Details" },
-                            { id: 3, label: "Shipping & Speed" },
-                            { id: 4, label: "Review & Checkout" }
+                            { id: 1, label: "Order Setup" },
+                            { id: 2, label: "Payment" },
+                            { id: 3, label: "Official Application" }
                         ].map((s) => {
                             const isCompleted = step > s.id;
                             const isActive = step === s.id;
@@ -235,23 +217,16 @@ export default function BirthFlowPage() {
                                 <div key={s.id} className="relative z-10 flex items-center">
                                     {isActive ? (
                                         <div className="bg-white border-2 border-blue-500 rounded-full shadow-md py-1.5 px-3 flex items-center gap-2 transition-all duration-300">
-                                            <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-black">
+                                            <div className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-[10px] font-black">
                                                 {s.id}
-                                            </span>
-                                            <span className="text-xs font-black text-blue-500 whitespace-nowrap hidden sm:inline">
+                                            </div>
+                                            <span className="text-xs font-bold text-[#0f172a] whitespace-nowrap hidden sm:block pr-1">
                                                 {s.label}
                                             </span>
-                                            <span className="text-xs font-black text-blue-500 whitespace-nowrap sm:hidden">
-                                                Active
-                                            </span>
-                                        </div>
-                                    ) : isCompleted ? (
-                                        <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md font-bold text-sm cursor-pointer transition-all hover:scale-105" onClick={() => setStep(s.id)}>
-                                            ✓
                                         </div>
                                     ) : (
-                                        <div className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 flex items-center justify-center font-bold text-xs shadow-xs">
-                                            {s.id}
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${isCompleted ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20' : 'bg-slate-100 text-slate-400 border-2 border-slate-200'}`}>
+                                            {isCompleted ? '✓' : s.id}
                                         </div>
                                     )}
                                 </div>
@@ -260,905 +235,435 @@ export default function BirthFlowPage() {
                     </div>
                 )}
 
-                {/* SLIDING FORM CONTAINER */}
-                <div className="overflow-hidden w-full bg-transparent">
-                    <div
-                        className="flex transition-transform duration-500 ease-in-out"
-                        style={{ transform: `translateX(-${(step - 1) * 20}%)`, width: '500%' }}
-                    >
+                <div className={`transition-all duration-500 ease-in-out ${step < 4 ? '' : 'h-0 opacity-0 pointer-events-none overflow-hidden'}`}>
 
-                        {/* STEP 1 APPLICANT INFO & REQUEST TYPE */}
-                        <div className={`w-1/5 shrink-0 px-2 sm:px-4 space-y-8 transition-all duration-500 delay-100 ${step === 1 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
-                            <div className="text-center space-y-1">
-                                <h2 className="text-2xl font-black text-[#0b2545] tracking-tight">Applicant Info & Request Type</h2>
-                                <p className="text-slate-500 text-xs font-medium">Define your request details and your contact information</p>
-                            </div>
+                    {/* STEP 1: ORDER DETAILS & SHIPPING */}
+                    {step === 1 && (
+                        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+                            <div className="p-6 md:p-10 animate-fade-in space-y-8">
+                                <div>
+                                    <h2 className="text-2xl font-black text-[#0b2545] tracking-tight mb-2">Order Setup & Delivery</h2>
+                                    <p className="text-sm font-medium text-slate-500">Configure your order and tell us where to mail the final certificate.</p>
+                                </div>
 
-                            <div className="space-y-6 max-w-2xl mx-auto text-[#0f172a]">
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    <div className="space-y-4">
+                                        <h3 className="text-sm font-bold text-[#2563eb] uppercase tracking-wider border-b border-slate-100 pb-2">Document Quantities</h3>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Number of Certificate Copies ($15 ea)</label>
+                                            <input type="number" min="1" max="10" className={inputClassModern} value={formData.number_of_copies} onChange={(e) => handleInputChange('number_of_copies', parseInt(e.target.value) || 1)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Voluntary Acknowledgment of Paternity Copies ($5 ea)</label>
+                                            <input type="number" min="0" max="10" className={inputClassModern} value={formData.paternity_copies} onChange={(e) => handleInputChange('paternity_copies', parseInt(e.target.value) || 0)} />
+                                        </div>
+                                    </div>
 
-                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                    <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block">
-                                        REQUEST DETAILS
-                                    </span>
-
-                                    <div className="grid sm:grid-cols-2 gap-4">
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wide leading-none mb-1">
-                                                Certificate Type
-                                            </label>
-                                            <select
-                                                value={formData.certType}
-                                                onChange={(e) => handleInputChange("certType", e.target.value)}
-                                                className="w-full bg-transparent text-xs font-semibold text-[#0b2545] outline-hidden cursor-pointer"
-                                            >
-                                                <option value="Birth">Birth Certificate</option>
-                                                <option value="Marriage">Marriage Certificate</option>
-                                                <option value="Divorce">Divorce Certificate</option>
-                                                <option value="Death">Death Certificate</option>
+                                    <div className="space-y-4">
+                                        <h3 className="text-sm font-bold text-[#2563eb] uppercase tracking-wider border-b border-slate-100 pb-2">Processing & Shipping</h3>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Processing Speed</label>
+                                            <select className={inputClassModern} value={formData.processingSpeed} onChange={(e) => handleInputChange('processingSpeed', e.target.value)}>
+                                                <option value="standard">Standard Processing (Free)</option>
+                                                <option value="expedited">Expedited Processing (+$25)</option>
                                             </select>
                                         </div>
-
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wide leading-none mb-1">
-                                                State where event occurred
-                                            </label>
-                                            <select
-                                                value={formData.eventState}
-                                                onChange={(e) => handleInputChange("eventState", e.target.value)}
-                                                className="w-full bg-transparent text-xs font-semibold text-[#0b2545] outline-hidden cursor-pointer">
-                                                <option value="AL">Alabama</option>
-                                                <option value="AK">Alaska</option>
-                                                <option value="AZ">Arizona</option>
-                                                <option value="AR">Arkansas</option>
-                                                <option value="CA">California</option>
-                                                <option value="CO">Colorado</option>
-                                                <option value="CT">Connecticut</option>
-                                                <option value="DE">Delaware</option>
-                                                <option value="FL">Florida</option>
-                                                <option value="GA">Georgia</option>
-                                                <option value="HI">Hawaii</option>
-                                                <option value="ID">Idaho</option>
-                                                <option value="IL">Illinois</option>
-                                                <option value="IN">Indiana</option>
-                                                <option value="IA">Iowa</option>
-                                                <option value="KS">Kansas</option>
-                                                <option value="KY">Kentucky</option>
-                                                <option value="LA">Louisiana</option>
-                                                <option value="ME">Maine</option>
-                                                <option value="MD">Maryland</option>
-                                                <option value="MA">Massachusetts</option>
-                                                <option value="MI">Michigan</option>
-                                                <option value="MN">Minnesota</option>
-                                                <option value="MS">Mississippi</option>
-                                                <option value="MO">Missouri</option>
-                                                <option value="MT">Montana</option>
-                                                <option value="NE">Nebraska</option>
-                                                <option value="NV">Nevada</option>
-                                                <option value="NH">New Hampshire</option>
-                                                <option value="NJ">New Jersey</option>
-                                                <option value="NM">New Mexico</option>
-                                                <option value="NY">New York</option>
-                                                <option value="NC">North Carolina</option>
-                                                <option value="ND">North Dakota</option>
-                                                <option value="OH">Ohio</option>
-                                                <option value="OK">Oklahoma</option>
-                                                <option value="OR">Oregon</option>
-                                                <option value="PA">Pennsylvania</option>
-                                                <option value="RI">Rhode Island</option>
-                                                <option value="SC">South Carolina</option>
-                                                <option value="SD">South Dakota</option>
-                                                <option value="TN">Tennessee</option>
-                                                <option value="TX">Texas</option>
-                                                <option value="UT">Utah</option>
-                                                <option value="VT">Vermont</option>
-                                                <option value="VA">Virginia</option>
-                                                <option value="WA">Washington</option>
-                                                <option value="WV">West Virginia</option>
-                                                <option value="WI">Wisconsin</option>
-                                                <option value="WY">Wyoming</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Reason for Request</label>
-                                        <select
-                                            value={formData.reason}
-                                            onChange={(e) => handleInputChange("reason", e.target.value)}
-                                            className="w-full bg-transparent text-xs font-semibold text-[#0b2545] outline-hidden cursor-pointer"
-                                        >
-                                            <option value="Passport">Passport</option>
-                                            <option value="Employment">Employment</option>
-                                            <option value="Social Security">Social Security</option>
-                                            <option value="Legal Proceedings">Legal Proceedings</option>
-                                            <option value="Genealogy">Genealogy</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {/* APPLICANT CONTACT */}
-                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                    <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block">
-                                        APPLICANT CONTACT DETAILS
-                                    </span>
-
-                                    <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Full Name</label>
-                                        <input
-                                            type="text"
-                                            value={formData.applicantName}
-                                            onChange={(e) => handleInputChange("applicantName", e.target.value)}
-                                            placeholder="Your current full name"
-                                            className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                        />
-                                    </div>
-
-                                    <div className="grid sm:grid-cols-2 gap-4">
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Email Address</label>
-                                            <input
-                                                type="email"
-                                                value={formData.applicantEmail}
-                                                onChange={(e) => handleInputChange("applicantEmail", e.target.value)}
-                                                placeholder="your@email.com"
-                                                className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Mobile Phone</label>
-                                            <input
-                                                type="tel"
-                                                value={formData.applicantPhone}
-                                                onChange={(e) => handleInputChange("applicantPhone", e.target.value)}
-                                                placeholder="(123) 456-7890"
-                                                className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-end gap-3 pt-4">
-                                    <button
-                                        disabled
-                                        className="border border-slate-200 bg-white text-xs font-bold text-slate-300 px-6 py-2.5 rounded-xl cursor-not-allowed"
-                                    >
-                                        Go Back
-                                    </button>
-                                    <button
-                                        onClick={nextStep}
-                                        disabled={!formData.applicantName || !formData.applicantEmail || !formData.applicantPhone}
-                                        className={`px-8 py-2.5 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md ${formData.applicantName && formData.applicantEmail && formData.applicantPhone
-                                            ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-blue-500/10'
-                                            : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                                            }`}
-                                    >
-                                        Continue &gt;
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* STEP 2: RECORD SUBJECT DETAILS */}
-                        <div className={`w-1/5 shrink-0 px-2 sm:px-4 space-y-8 transition-all duration-500 delay-100 ${step === 2 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
-                            <div className="text-center space-y-1">
-                                <h2 className="text-2xl font-black text-[#0b2545] tracking-tight">Record Subject Details</h2>
-                                <p className="text-slate-500 text-xs font-medium">Add details of the person named on the original certificate</p>
-                            </div>
-
-                            <div className="space-y-6 max-w-2xl mx-auto text-[#0f172a]">
-
-                                {/* SUBJECT INFORMATION */}
-                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                    <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block">
-                                        SUBJECT INFORMATION
-                                    </span>
-
-                                    <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Relationship to Record Holder</label>
-                                        <select
-                                            value={formData.relationship}
-                                            onChange={(e) => handleInputChange("relationship", e.target.value)}
-                                            className="w-full bg-transparent text-xs font-semibold text-[#0b2545] outline-hidden cursor-pointer"
-                                        >
-                                            <option value="Self">Self</option>
-                                            <option value="Parent">Parent</option>
-                                            <option value="Child">Child</option>
-                                            <option value="Spouse">Spouse</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">
-                                            {formData.certType === "Birth" ? "Subject's Full Birth/Maiden Name" : "Subject's Full Name"}
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={formData.subjectName}
-                                            onChange={(e) => handleInputChange("subjectName", e.target.value)}
-                                            placeholder="Name appearing on original record"
-                                            className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                        />
-                                    </div>
-
-                                    <div className="grid sm:grid-cols-2 gap-4">
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Exact Event City/County</label>
-                                            <input
-                                                type="text"
-                                                value={formData.eventCity}
-                                                onChange={(e) => handleInputChange("eventCity", e.target.value)}
-                                                placeholder="City or County of event"
-                                                className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                            />
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Date of Event</label>
-                                            <div className="grid grid-cols-3 gap-2">
-                                                <select
-                                                    value={formData.eventDay}
-                                                    onChange={(e) => handleInputChange("eventDay", e.target.value)}
-                                                    className="border border-slate-200 rounded-lg p-2 bg-white text-xs font-bold text-[#0b2545] outline-hidden cursor-pointer"
-                                                >
-                                                    {Array.from({ length: 31 }, (_, i) => (
-                                                        <option key={i + 1} value={i + 1}>{i + 1}</option>
-                                                    ))}
-                                                </select>
-                                                <select
-                                                    value={formData.eventMonth}
-                                                    onChange={(e) => handleInputChange("eventMonth", e.target.value)}
-                                                    className="border border-slate-200 rounded-lg p-2 bg-white text-xs font-bold text-[#0b2545] outline-hidden cursor-pointer"
-                                                >
-                                                    {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map(m => (
-                                                        <option key={m} value={m}>{m}</option>
-                                                    ))}
-                                                </select>
-                                                <select
-                                                    value={formData.eventYear}
-                                                    onChange={(e) => handleInputChange("eventYear", e.target.value)}
-                                                    className="border border-slate-200 rounded-lg p-2 bg-white text-xs font-bold text-[#0b2545] outline-hidden cursor-pointer"
-                                                >
-                                                    {Array.from({ length: 100 }, (_, i) => 2026 - i).map(y => (
-                                                        <option key={y} value={y}>{y}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* PARENTS INFORMATION */}
-                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                    <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block">
-                                        FAMILY / PARENTS DETAILS
-                                    </span>
-
-                                    <div className="grid sm:grid-cols-2 gap-4">
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Father's Full Name</label>
-                                            <input
-                                                type="text"
-                                                value={formData.fatherName}
-                                                onChange={(e) => handleInputChange("fatherName", e.target.value)}
-                                                placeholder="Father's full name"
-                                                className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                            />
-                                        </div>
-
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Mother's Maiden Name</label>
-                                            <input
-                                                type="text"
-                                                value={formData.motherName}
-                                                onChange={(e) => handleInputChange("motherName", e.target.value)}
-                                                placeholder="Mother's full name & maiden last name"
-                                                className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-end gap-3 pt-4">
-                                    <button
-                                        onClick={prevStep}
-                                        className="border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 px-6 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
-                                    >
-                                        Go Back
-                                    </button>
-                                    <button
-                                        onClick={nextStep}
-                                        disabled={!formData.subjectName || !formData.eventCity || !formData.fatherName || !formData.motherName}
-                                        className={`px-8 py-2.5 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md ${formData.subjectName && formData.eventCity && formData.fatherName && formData.motherName
-                                            ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-blue-500/10'
-                                            : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                                            }`}
-                                    >
-                                        Continue &gt;
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* STEP 3: SHIPPING & PROCESSING OPTIONS */}
-                        <div className={`w-1/5 shrink-0 px-2 sm:px-4 space-y-8 transition-all duration-500 delay-100 ${step === 3 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
-                            <div className="text-center space-y-1">
-                                <h2 className="text-2xl font-black text-[#0b2545] tracking-tight">Shipping & Processing Options</h2>
-                                <p className="text-slate-500 text-xs font-medium">Select your delivery details and processing speeds</p>
-                            </div>
-
-                            <div className="space-y-6 max-w-2xl mx-auto text-[#0f172a]">
-
-                                {/* SHIPPING ADDRESS */}
-                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                    <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block">
-                                        SHIPPING ADDRESS
-                                    </span>
-
-                                    <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Street address</label>
-                                        <input
-                                            type="text"
-                                            value={formData.shipStreet}
-                                            onChange={(e) => handleInputChange("shipStreet", e.target.value)}
-                                            placeholder="e.g. 123 Main St, Apt 4B"
-                                            className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs col-span-2">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">City</label>
-                                            <input
-                                                type="text"
-                                                value={formData.shipCity}
-                                                onChange={(e) => handleInputChange("shipCity", e.target.value)}
-                                                placeholder="Memphis"
-                                                className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                            />
-                                        </div>
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">State</label>
-                                            <select
-                                                value={formData.shipState}
-                                                onChange={(e) => handleInputChange("shipState", e.target.value)}
-                                                className="w-full bg-transparent text-xs font-semibold text-[#0b2545] outline-hidden cursor-pointer">
-                                                <option value="TN">TN</option>
-                                                <option value="TX">TX</option>
-                                                <option value="FL">FL</option>
-                                                <option value="CA">CA</option>
-                                                <option value="NY">NY</option>
-                                                <option value="AL">AL</option>
-                                                <option value="AK">AK</option>
-                                                <option value="AZ">AZ</option>
-                                                <option value="AR">AR</option>
-                                                <option value="CO">CO</option>
-                                                <option value="CT">CT</option>
-                                                <option value="DE">DE</option>
-                                                <option value="GA">GA</option>
-                                                <option value="HI">HI</option>
-                                                <option value="ID">ID</option>
-                                                <option value="IL">IL</option>
-                                                <option value="IN">IN</option>
-                                                <option value="IA">IA</option>
-                                                <option value="KS">KS</option>
-                                                <option value="KY">KY</option>
-                                                <option value="LA">LA</option>
-                                                <option value="ME">ME</option>
-                                                <option value="MD">MD</option>
-                                                <option value="MA">MA</option>
-                                                <option value="MI">MI</option>
-                                                <option value="MN">MN</option>
-                                                <option value="MS">MS</option>
-                                                <option value="MO">MO</option>
-                                                <option value="MT">MT</option>
-                                                <option value="NE">NE</option>
-                                                <option value="NV">NV</option>
-                                                <option value="NH">NH</option>
-                                                <option value="NJ">NJ</option>
-                                                <option value="NM">NM</option>
-                                                <option value="NC">NC</option>
-                                                <option value="ND">ND</option>
-                                                <option value="OH">OH</option>
-                                                <option value="OK">OK</option>
-                                                <option value="OR">OR</option>
-                                                <option value="PA">PA</option>
-                                                <option value="RI">RI</option>
-                                                <option value="SC">SC</option>
-                                                <option value="SD">SD</option>
-                                                <option value="UT">UT</option>
-                                                <option value="VT">VT</option>
-                                                <option value="VA">VA</option>
-                                                <option value="WA">WA</option>
-                                                <option value="WV">WV</option>
-                                                <option value="WI">WI</option>
-                                                <option value="WY">WY</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">ZIP Code</label>
-                                            <input
-                                                type="text"
-                                                value={formData.shipZip}
-                                                onChange={(e) => handleInputChange("shipZip", e.target.value)}
-                                                placeholder="e.g. 37201"
-                                                className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                            />
-                                        </div>
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Country</label>
-                                            <select
-                                                value={formData.shipCountry}
-                                                onChange={(e) => handleInputChange("shipCountry", e.target.value)}
-                                                className="w-full bg-transparent text-xs font-semibold text-[#0b2545] outline-hidden cursor-pointer"
-                                            >
-                                                <option value="United States">United States</option>
-                                                <option value="Canada">Canada</option>
-                                                <option value="Mexico">Mexico</option>
-                                                <option value="United Kingdom">United Kingdom</option>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Shipping Method</label>
+                                            <select className={inputClassModern} value={formData.shippingMethod} onChange={(e) => handleInputChange('shippingMethod', e.target.value)}>
+                                                <option value="standard">Standard Mail (+$15)</option>
+                                                <option value="express">Express Overnight (+$45)</option>
                                             </select>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* SHIPPING METHOD */}
-                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                    <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block">
-                                        SHIPPING METHOD
-                                    </span>
-
-                                    <div className="space-y-2">
-                                        {[
-                                            { id: "standard", title: "Standard Shipping", price: 15.00, desc: "Basic tracking via USPS" },
-                                            { id: "express", title: "Express / Overnight Shipping", price: 45.00, desc: "Fast priority delivery via FedEx/UPS" }
-                                        ].map(opt => (
-                                            <div
-                                                key={opt.id}
-                                                onClick={() => handleInputChange("shippingMethod", opt.id)}
-                                                className={`border rounded-xl p-4 cursor-pointer flex items-center justify-between transition-all duration-300 ${formData.shippingMethod === opt.id
-                                                    ? 'border-blue-500 bg-blue-50/20'
-                                                    : 'border-slate-200 hover:border-slate-300'
-                                                    }`}
-                                            >
-                                                <div className="space-y-0.5">
-                                                    <span className="text-xs font-black text-[#0b2545]">{opt.title}</span>
-                                                    <span className="text-[10px] text-slate-500 font-semibold block">{opt.desc}</span>
-                                                </div>
-                                                <div className="text-right flex items-center gap-3">
-                                                    <span className="text-xs font-bold text-blue-600">
-                                                        ${opt.price.toFixed(2)}
-                                                    </span>
-                                                    <input
-                                                        type="radio"
-                                                        checked={formData.shippingMethod === opt.id}
-                                                        onChange={() => { }}
-                                                        className="w-4 h-4 text-blue-600"
-                                                    />
-                                                </div>
-                                            </div>
-                                        ))}
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-bold text-[#2563eb] uppercase tracking-wider border-b border-slate-100 pb-2">Applicant / Mailing Information</h3>
+                                    <div className="grid md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Applicant Name</label>
+                                            <input type="text" className={inputClassModern} value={formData.mail_name} onChange={(e) => handleInputChange('mail_name', e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Email Address</label>
+                                            <input type="email" className={inputClassModern} value={formData.email} onChange={(e) => handleInputChange('email', e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Telephone Number</label>
+                                            <input type="tel" className={inputClassModern} value={formData.phone} onChange={(e) => handleInputChange('phone', e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Mailing Address or Route</label>
+                                            <input type="text" className={inputClassModern} value={formData.mail_address} onChange={(e) => handleInputChange('mail_address', e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">City and State</label>
+                                            <input type="text" placeholder="e.g. Nashville, TN" className={inputClassModern} value={formData.mail_city_state} onChange={(e) => handleInputChange('mail_city_state', e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Zip Code</label>
+                                            <input type="text" className={inputClassModern} value={formData.mail_zip} onChange={(e) => handleInputChange('mail_zip', e.target.value)} />
+                                        </div>
                                     </div>
-                                </div>
-
-                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                    <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block">
-                                        PROCESSING SPEED
-                                    </span>
-
-                                    <div className="space-y-2">
-                                        {[
-                                            { id: "standard", title: "Standard Processing", price: 0.00, desc: "Normal document processing in 2-3 weeks" },
-                                            { id: "expedited", title: "Expedited Processing", price: 25.00, desc: "Fast processing in 24-48 hours with certified priority network" }
-                                        ].map(opt => (
-                                            <div
-                                                key={opt.id}
-                                                onClick={() => handleInputChange("processingSpeed", opt.id)}
-                                                className={`border rounded-xl p-4 cursor-pointer flex items-center justify-between transition-all duration-300 ${formData.processingSpeed === opt.id
-                                                    ? 'border-blue-500 bg-blue-50/20'
-                                                    : 'border-slate-200 hover:border-slate-300'
-                                                    }`}
-                                            >
-                                                <div className="space-y-0.5">
-                                                    <span className="text-xs font-black text-[#0b2545]">{opt.title}</span>
-                                                    <span className="text-[10px] text-slate-500 font-semibold block">{opt.desc}</span>
-                                                </div>
-                                                <div className="text-right flex items-center gap-3">
-                                                    <span className="text-xs font-bold text-blue-600">
-                                                        {opt.price === 0 ? "Included" : `+$${opt.price.toFixed(2)}`}
-                                                    </span>
-                                                    <input
-                                                        type="radio"
-                                                        checked={formData.processingSpeed === opt.id}
-                                                        onChange={() => { }}
-                                                        className="w-4 h-4 text-blue-600"
-                                                    />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-end gap-3 pt-4">
-                                    <button
-                                        onClick={prevStep}
-                                        className="border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 px-6 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
-                                    >
-                                        Go Back
-                                    </button>
-                                    <button
-                                        onClick={nextStep}
-                                        disabled={!formData.shipStreet || !formData.shipCity || !formData.shipZip}
-                                        className={`px-8 py-2.5 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md ${formData.shipStreet && formData.shipCity && formData.shipZip
-                                            ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-blue-500/10'
-                                            : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                                            }`}
-                                    >
-                                        Continue &gt;
-                                    </button>
                                 </div>
                             </div>
                         </div>
+                    )}
 
-                        {/* STEP 4: REVIEW & CHECKOUT */}
-                        <div className={`w-1/5 shrink-0 px-2 sm:px-4 space-y-8 transition-all duration-500 delay-100 ${step === 4 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
-                            <div className="text-center space-y-1">
-                                <h2 className="text-2xl font-black text-[#0b2545] tracking-tight">Review & Checkout</h2>
-                                <p className="text-slate-500 text-xs font-medium">Verify your details and complete your secure vital record order</p>
-                            </div>
-
-                            <div className="space-y-6 max-w-2xl mx-auto text-[#0f172a]">
-
-                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-6">
-
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center pb-1.5 border-b border-slate-100">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wide">
-                                                1. APPLICANT & REQUEST INFO
-                                            </span>
-                                            <button
-                                                onClick={() => setStep(1)}
-                                                className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
-                                            >
-                                                Edit
-                                            </button>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs font-medium text-slate-600">
-                                            <div><strong className="text-slate-700">Certificate Type:</strong> {formData.certType}</div>
-                                            <div><strong className="text-slate-700">State:</strong> {formData.eventState}</div>
-                                            <div><strong className="text-slate-700">Reason:</strong> {formData.reason}</div>
-                                            <div><strong className="text-slate-700">Name:</strong> {formData.applicantName}</div>
-                                            <div className="col-span-2"><strong className="text-slate-700">Email:</strong> {formData.applicantEmail}</div>
-                                            <div><strong className="text-slate-700">Mobile:</strong> {formData.applicantPhone}</div>
-                                        </div>
+                    {/* STEP 2: CHECKOUT (PAYMENT) */}
+                    {step === 2 && (
+                        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+                            <div className="p-6 md:p-10 animate-fade-in grid md:grid-cols-[1.5fr_1fr] gap-10">
+                                <div className="space-y-8">
+                                    <div>
+                                        <h2 className="text-2xl font-black text-[#0b2545] tracking-tight mb-2">Secure Checkout</h2>
+                                        <p className="text-sm font-medium text-slate-500">Pay your processing fees to unlock the official application form.</p>
                                     </div>
-
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center pb-1.5 border-b border-slate-100">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wide">
-                                                2. RECORD SUBJECT DETAILS
-                                            </span>
-                                            <button
-                                                onClick={() => setStep(2)}
-                                                className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
-                                            >
-                                                Edit
-                                            </button>
+                                    <div className="space-y-4">
+                                        <h3 className="text-sm font-bold text-[#2563eb] uppercase tracking-wider border-b border-slate-100 pb-2">Payment Details</h3>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Cardholder Name</label>
+                                            <input type="text" className={inputClassModern} value={formData.cardName} onChange={(e) => handleInputChange('cardName', e.target.value)} />
                                         </div>
-                                        <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs font-medium text-slate-600">
-                                            <div><strong className="text-slate-700">Relationship:</strong> {formData.relationship}</div>
-                                            <div><strong className="text-slate-700">Subject Name:</strong> {formData.subjectName}</div>
-                                            <div><strong className="text-slate-700">City/County:</strong> {formData.eventCity}</div>
-                                            <div><strong className="text-slate-700">Event Date:</strong> {formData.eventMonth} {formData.eventDay}, {formData.eventYear}</div>
-                                            <div className="col-span-2"><strong className="text-slate-700">Father's Name:</strong> {formData.fatherName}</div>
-                                            <div className="col-span-2"><strong className="text-slate-700">Mother's Maiden Name:</strong> {formData.motherName}</div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Card Number</label>
+                                            <input type="text" placeholder="0000 0000 0000 0000" className={`${inputClassModern} tracking-[0.2em]`} value={formData.cardNumber} onChange={(e) => {
+                                                let val = e.target.value.replace(/\D/g, '');
+                                                val = val.replace(/(\d{4})/g, '$1 ').trim();
+                                                handleInputChange('cardNumber', val);
+                                            }} maxLength={19} />
                                         </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center pb-1.5 border-b border-slate-100">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wide">
-                                                3. SHIPPING & DELIVERY
-                                            </span>
-                                            <button
-                                                onClick={() => setStep(3)}
-                                                className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
-                                            >
-                                                Edit
-                                            </button>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs font-medium text-slate-600">
-                                            <div className="col-span-2"><strong className="text-slate-700">Address:</strong> {formData.shipStreet}, {formData.shipCity}, {formData.shipState} {formData.shipZip}, {formData.shipCountry}</div>
-                                            <div><strong className="text-slate-700">Shipping Mode:</strong> {formData.shippingMethod === "express" ? "Express / Overnight" : "Standard Shipping"}</div>
-                                            <div><strong className="text-slate-700">Processing Speed:</strong> {formData.processingSpeed === "expedited" ? "Expedited (24-48h)" : "Standard (2-3w)"}</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* COST BREAKDOWN CARD */}
-                                <div className="bg-[#f0f6fe]/70 rounded-2xl p-6 shadow-sm border border-[#e0ebf8] space-y-3.5">
-                                    <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block">
-                                        Order Total Breakdown
-                                    </span>
-
-                                    <div className="space-y-2.5 text-xs font-semibold text-slate-600">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-700">State Certificate Fee</span>
-                                            <span className="font-bold text-[#0b2545]">${stateCertificateFee.toFixed(2)}</span>
-                                        </div>
-
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-700">Platform Management Fee</span>
-                                            <span className="font-bold text-[#0b2545]">${platformFee.toFixed(2)}</span>
-                                        </div>
-
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-700">Shipping Cost ({formData.shippingMethod === "express" ? "Express" : "Standard"})</span>
-                                            <span className="font-bold text-[#0b2545]">${getShippingCost().toFixed(2)}</span>
-                                        </div>
-
-                                        {getProcessingCost() > 0 && (
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-slate-700">Processing Speed Addon (Expedited)</span>
-                                                <span className="font-bold text-[#0b2545]">${getProcessingCost().toFixed(2)}</span>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">Expiry (MM/YY)</label>
+                                                <input type="text" placeholder="MM/YY" className={inputClassModern} value={formData.cardExpiry} onChange={(e) => handleInputChange('cardExpiry', e.target.value)} maxLength={5} />
                                             </div>
-                                        )}
-
-                                        <div className="flex justify-between items-center pt-3 text-sm font-black text-[#0b2545] border-t border-slate-200">
-                                            <span>Order Total</span>
-                                            <span className="text-blue-600 text-base">${totalFee.toFixed(2)}</span>
+                                            <div>
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1 mb-1">CVC</label>
+                                                <input type="text" placeholder="123" className={inputClassModern} value={formData.cardCvc} onChange={(e) => handleInputChange('cardCvc', e.target.value)} maxLength={4} />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                    <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block">
-                                        MOCK PAYMENT FORM
-                                    </span>
-
-                                    <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Name on Card</label>
-                                        <input
-                                            type="text"
-                                            value={formData.cardName}
-                                            onChange={(e) => handleInputChange("cardName", e.target.value)}
-                                            placeholder="Name as it appears on card"
-                                            className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                        />
+                                <div className="bg-[#f8fafc] p-6 rounded-2xl border border-slate-200/60 h-fit space-y-4">
+                                    <h3 className="text-sm font-black text-[#0b2545] uppercase tracking-wider border-b border-slate-200 pb-3">Order Summary</h3>
+                                    <div className="space-y-3 text-xs font-medium text-slate-600">
+                                        <div className="flex justify-between"><span className="text-slate-500">TN State Fee (x{formData.number_of_copies})</span><span className="font-bold text-slate-800">${(formData.number_of_copies * 15.00).toFixed(2)}</span></div>
+                                        {formData.paternity_copies > 0 && <div className="flex justify-between"><span className="text-slate-500">Paternity Ack (x{formData.paternity_copies})</span><span className="font-bold text-slate-800">${(formData.paternity_copies * 5.00).toFixed(2)}</span></div>}
+                                        <div className="flex justify-between"><span className="text-slate-500">Platform Prep Fee</span><span className="font-bold text-slate-800">${platformFee.toFixed(2)}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-500">Processing ({formData.processingSpeed})</span><span className="font-bold text-slate-800">${processingCost.toFixed(2)}</span></div>
+                                        <div className="flex justify-between pb-3 border-b border-slate-200"><span className="text-slate-500">Shipping ({formData.shippingMethod})</span><span className="font-bold text-slate-800">${shippingCost.toFixed(2)}</span></div>
                                     </div>
-
-                                    <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Credit / Debit Card number</label>
-                                        <input
-                                            type="text"
-                                            value={formData.cardNumber}
-                                            onChange={(e) => {
-                                                let value = e.target.value.replace(/\D/g, '');
-                                                if (value.length > 16) {
-                                                    value = value.substring(0, 16);
-                                                }
-                                                let formattedValue = value.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
-                                                handleInputChange("cardNumber", formattedValue);
-                                            }}
-                                            maxLength={19}
-                                            placeholder="0000 0000 0000 0000"
-                                            className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0 tracking-widest"
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Expiration Date</label>
-                                            <input
-                                                type="text"
-                                                value={formData.cardExpiry}
-                                                onChange={(e) => handleInputChange("cardExpiry", e.target.value)}
-                                                placeholder="MM / YY"
-                                                className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                            />
-                                        </div>
-                                        <div className="relative border border-slate-200 rounded-xl p-2.5 bg-white shadow-2xs">
-                                            <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Security Code (CVC)</label>
-                                            <input
-                                                type="password"
-                                                value={formData.cardCvc}
-                                                onChange={(e) => handleInputChange("cardCvc", e.target.value)}
-                                                placeholder="CVC"
-                                                className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
-                                            />
-                                        </div>
+                                    <div className="flex justify-between items-center pt-1">
+                                        <span className="text-sm font-black text-[#0b2545]">Total</span>
+                                        <span className="text-2xl font-black text-[#2563eb]">${totalFee.toFixed(2)}</span>
                                     </div>
                                 </div>
-
-                                {/* TERMS & SUBMIT ACTIONS */}
-                                <div className="space-y-4 pt-2">
-                                    <div className="flex gap-4 items-start bg-blue-50/10 p-4 border border-slate-100 rounded-2xl relative">
-                                        <input
-                                            type="checkbox"
-                                            id="agreedToTerms"
-                                            checked={formData.agreedToTerms}
-                                            onChange={(e) => handleInputChange("agreedToTerms", e.target.checked)}
-                                            className="w-4 h-4 text-blue-600 rounded-2xs mt-0.5 cursor-pointer shrink-0"
-                                        />
-                                        <label htmlFor="agreedToTerms" className="text-[10px] text-slate-500 font-semibold leading-relaxed cursor-pointer select-none">
-                                            By checking this box, I agree to submit the information provided to this website, and I authorize Order Vital Records to use my information to fill out all necessary documents to prepare my application materials. I understand that <strong className="text-slate-800">OrderVitalRecords.com</strong> is a private document preparation service.
-                                        </label>
-                                    </div>
-
-                                    <div className="flex gap-3 pt-2">
-                                        <button
-                                            onClick={() => setStep(3)}
-                                            className="w-1/3 border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 py-3 rounded-xl transition-all shadow-2xs cursor-pointer"
-                                        >
-                                            Review All
-                                        </button>
-                                        <button
-                                            onClick={handleSubmit}
-                                            disabled={isSubmitting || !formData.agreedToTerms || !formData.cardName || !formData.cardNumber || !formData.cardExpiry || !formData.cardCvc}
-                                            className={`w-2/3 py-3 text-xs font-bold text-center text-white rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 ${!isSubmitting && formData.agreedToTerms && formData.cardName && formData.cardNumber && formData.cardExpiry && formData.cardCvc
-                                                ? 'bg-[#0080ff] hover:bg-blue-600 shadow-blue-500/25 cursor-pointer'
-                                                : 'bg-slate-300 shadow-none cursor-not-allowed'
-                                                }`}
-                                        >
-                                            {isSubmitting ? (
-                                                <span className="flex items-center gap-2 justify-center">
-                                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                    </svg>
-                                                    Processing...
-                                                </span>
-                                            ) : (
-                                                "Submit Order & Pay >"
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-
                             </div>
                         </div>
+                    )}
 
-                        {/* STEP 5: ORDER SUCCESS SCREEN */}
-                        <div className={`w-1/5 shrink-0 px-2 sm:px-4 space-y-8 transition-all duration-500 delay-100 ${step === 5 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
-                            <div className="text-center space-y-2">
-                                <div className="mx-auto w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-100 shadow-xs mb-2 animate-bounce">
-                                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
+                    {/* STEP 3: OFFICIAL APPLICATION FORM (PAPER REPLICA) */}
+                    {step === 3 && (
+                        <div className="animate-fade-in space-y-8 pb-4">
+                            <div className="flex items-center gap-4 bg-green-50 border border-green-200 p-4 rounded-xl">
+                                <div className="w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center shrink-0">✓</div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-green-800">Payment Successful</h4>
+                                    <p className="text-xs text-green-700 font-medium">Please fill out the official Tennessee form below exactly as it appears on paper.</p>
                                 </div>
-                                <h2 className="text-2xl font-black text-[#0b2545] tracking-tight">Order Confirmed & Paid!</h2>
-                                <p className="text-slate-500 text-xs font-semibold max-w-md mx-auto leading-relaxed">
-                                    Thank you for your order! Your document submission has been received. Your PDF receipt and summary was generated and downloaded automatically.
-                                </p>
                             </div>
 
-                            <div className="space-y-6 max-w-2xl mx-auto text-[#0f172a]">
+                            {/* PAPER FORM UI */}
+                            <div className="bg-white shadow-2xl mx-auto p-4 sm:p-8 md:p-12 text-black font-sans border border-gray-300 w-full" style={{ maxWidth: '8.5in', fontFamily: 'Arial, sans-serif' }}>
+                                <div className="w-full">
 
-                                {/* ORDER CONFIRMATION METADATA */}
-                                <div className="bg-[#f0f6fe]/70 rounded-2xl p-6 shadow-sm border border-[#e0ebf8] space-y-4">
-                                    <span className="text-[9px] font-black text-blue-500 tracking-wider uppercase block border-b border-blue-100 pb-1.5">
-                                        SUBMISSION SUMMARY
-                                    </span>
+                                    {/* Header */}
+                                    <div className="text-center mb-8 relative">
+                                        <h1 className="text-sm font-bold">TENNESSEE DEPARTMENT OF HEALTH</h1>
+                                        <h2 className="text-[13px]">OFFICE OF VITAL RECORDS</h2>
+                                        <h3 className="text-sm font-bold mt-4">APPLICATION FOR CERTIFIED COPY OF A TENNESSEE CERTIFICATE OF LIVE BIRTH</h3>
+                                    </div>
 
-                                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs font-semibold text-slate-600">
-                                        <div>
-                                            <span className="text-slate-400 block text-[9px] uppercase tracking-wide">Submission ID</span>
-                                            <strong className="text-blue-600 font-extrabold text-sm">{submissionDetails?.id}</strong>
+                                    {/* Top row */}
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 text-[13px] gap-6 md:gap-0">
+                                        <div className="flex items-end w-full md:w-auto">
+                                            <span className="font-bold mr-2">Date:</span>
+                                            <div className="border-b-2 border-slate-300 grow md:w-64 pb-0.5 px-2 text-center text-slate-500">{new Date().toLocaleDateString()}</div>
                                         </div>
-                                        <div>
-                                            <span className="text-slate-400 block text-[9px] uppercase tracking-wide">Date & Time</span>
-                                            <strong className="text-slate-800 font-bold">{submissionDetails?.date}</strong>
+                                        <div className="text-left md:text-right text-xs font-bold leading-tight flex flex-col items-start md:items-end bg-slate-50 md:bg-transparent p-4 md:p-0 rounded-lg w-full md:w-auto">
+                                            <div>
+                                                Number of Copies <div className="inline-block border-b-2 border-slate-300 w-16 text-center text-slate-500 pb-0.5">{formData.number_of_copies}</div>
+                                            </div>
+                                            <div className="mb-2">Enclose $15.00 for each copy</div>
+                                            <div>
+                                                <div className="inline-block border-b-2 border-slate-300 w-10 text-center text-slate-500 pb-0.5">{formData.paternity_copies > 0 ? formData.paternity_copies : ''}</div> Copy of Voluntary Acknowledgment of Paternity - $5.00 each copy
+                                            </div>
+                                            <div className="font-normal text-[10px]">(When purchased with a certified copy of the birth certificate.)</div>
                                         </div>
-                                        <div>
-                                            <span className="text-slate-400 block text-[9px] uppercase tracking-wide">Certificate Type</span>
-                                            <strong className="text-slate-800 font-bold">{formData.certType} Certificate</strong>
+                                    </div>
+
+                                    {/* Form Fields */}
+                                    <div className="space-y-6 md:space-y-4 text-[13px] font-bold">
+                                        <div className="flex flex-col md:flex-row md:items-end gap-2 md:gap-0">
+                                            <span className="md:mr-2">Full name on birth certificate:</span>
+                                            <div className="flex flex-col grow text-center">
+                                                <input type="text" className={inputClassPaper + " w-full"} value={formData.first_name} onChange={(e) => handleInputChange('first_name', e.target.value)} />
+                                                <span className="text-[10px] font-normal mt-1">First</span>
+                                            </div>
+                                            <div className="flex flex-col grow text-center md:mx-2">
+                                                <input type="text" className={inputClassPaper + " w-full"} value={formData.middle_name} onChange={(e) => handleInputChange('middle_name', e.target.value)} />
+                                                <span className="text-[10px] font-normal mt-1">Middle</span>
+                                            </div>
+                                            <div className="flex flex-col grow text-center">
+                                                <input type="text" className={inputClassPaper + " w-full"} value={formData.last_name} onChange={(e) => handleInputChange('last_name', e.target.value)} />
+                                                <span className="text-[10px] font-normal mt-1">Last Name</span>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <span className="text-slate-400 block text-[9px] uppercase tracking-wide">Event Location</span>
-                                            <strong className="text-slate-800 font-bold">{formData.eventCity ? `${formData.eventCity}, ` : ''}{formData.eventState}</strong>
+
+                                        <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 py-1">
+                                            <span>Has the name ever been changed other than by marriage?</span>
+                                            <div className="flex gap-6">
+                                                <label className="flex items-center font-normal cursor-pointer text-sm">
+                                                    <input type="checkbox" className="mr-1.5 w-4 h-4 md:w-3 md:h-3 appearance-none border-2 border-slate-400 checked:bg-blue-600 checked:border-blue-600 transition-colors" checked={formData.name_changed} onChange={() => handleInputChange('name_changed', true)} /> Yes
+                                                </label>
+                                                <label className="flex items-center font-normal cursor-pointer text-sm">
+                                                    <input type="checkbox" className="mr-1.5 w-4 h-4 md:w-3 md:h-3 appearance-none border-2 border-slate-400 checked:bg-blue-600 checked:border-blue-600 transition-colors" checked={!formData.name_changed} onChange={() => handleInputChange('name_changed', false)} /> No
+                                                </label>
+                                            </div>
                                         </div>
-                                        <div className="col-span-2 border-t border-slate-100 pt-3 flex justify-between items-center text-sm text-[#0b2545]">
-                                            <span className="font-extrabold text-xs text-slate-500 uppercase">Amount Processed</span>
-                                            <strong className="text-blue-600 text-base font-black">${totalFee.toFixed(2)}</strong>
+
+                                        <div className="flex flex-col md:flex-row md:items-end gap-1 md:gap-0">
+                                            <span className="md:mr-2">If yes, what was original name?</span>
+                                            <input type="text" className={inputClassPaper + " w-full md:w-auto"} value={formData.original_name} onChange={(e) => handleInputChange('original_name', e.target.value)} />
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-0">
+                                            <span className="md:mr-2">Date of birth:</span>
+                                            <div className="flex gap-2 w-full md:w-auto">
+                                                <div className="flex flex-col text-center grow md:w-24">
+                                                    <input type="text" className={inputClassPaper + " w-full text-center"} value={formData.dob_month} onChange={(e) => handleInputChange('dob_month', e.target.value)} />
+                                                    <span className="text-[10px] font-normal mt-1">Month</span>
+                                                </div>
+                                                <div className="flex flex-col text-center grow md:w-24 md:mx-2">
+                                                    <input type="text" className={inputClassPaper + " w-full text-center"} value={formData.dob_day} onChange={(e) => handleInputChange('dob_day', e.target.value)} />
+                                                    <span className="text-[10px] font-normal mt-1">Day</span>
+                                                </div>
+                                                <div className="flex flex-col text-center grow md:w-32 md:mr-8">
+                                                    <input type="text" className={inputClassPaper + " w-full text-center"} value={formData.dob_year} onChange={(e) => handleInputChange('dob_year', e.target.value)} />
+                                                    <span className="text-[10px] font-normal mt-1">Year</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col md:flex-row md:items-end w-full md:w-auto gap-1 md:gap-0">
+                                                <span className="md:mr-2">Sex:</span>
+                                                <input type="text" className={inputClassPaper + " w-full md:w-auto"} value={formData.sex} onChange={(e) => handleInputChange('sex', e.target.value)} />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-0 pt-1">
+                                            <span className="md:mr-2">Place of birth:</span>
+                                            <div className="flex gap-2 w-full md:w-auto grow">
+                                                <div className="flex flex-col text-center grow md:w-1/4">
+                                                    <input type="text" className={inputClassPaper + " w-full"} value={formData.birth_city} onChange={(e) => handleInputChange('birth_city', e.target.value)} />
+                                                    <span className="text-[10px] font-normal mt-1">City</span>
+                                                </div>
+                                                <div className="flex flex-col text-center grow md:w-1/5 md:mx-2">
+                                                    <input type="text" className={inputClassPaper + " w-full"} value={formData.birth_county} onChange={(e) => handleInputChange('birth_county', e.target.value)} />
+                                                    <span className="text-[10px] font-normal mt-1">County</span>
+                                                </div>
+                                                <div className="flex flex-col text-center grow md:w-20 md:mx-2">
+                                                    <input type="text" className={inputClassPaper + " w-full text-center"} value={formData.birth_state} onChange={(e) => handleInputChange('birth_state', e.target.value)} />
+                                                    <span className="text-[10px] font-normal mt-1">State</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col text-center w-full md:w-auto mt-2 md:mt-0">
+                                                <input type="text" className={inputClassPaper + " w-full"} value={formData.birth_country !== 'USA' && formData.birth_country !== 'United States' ? formData.birth_country : ''} onChange={(e) => handleInputChange('birth_country', e.target.value)} />
+                                                <span className="text-[10px] font-normal mt-1">Foreign Country (if Report of Foreign Birth)</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row md:items-end gap-1 md:gap-0">
+                                            <span className="md:mr-2">Hospital where birth occurred:</span>
+                                            <input type="text" className={inputClassPaper + " w-full md:w-auto"} value={formData.hospital} onChange={(e) => handleInputChange('hospital', e.target.value)} />
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row md:items-end gap-1 md:gap-0">
+                                            <span className="md:mr-2">Full name of father:</span>
+                                            <input type="text" className={inputClassPaper + " w-full md:w-auto"} value={formData.father_name} onChange={(e) => handleInputChange('father_name', e.target.value)} />
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row md:items-end gap-1 md:gap-0">
+                                            <span className="md:mr-2">Full maiden name of mother:</span>
+                                            <input type="text" className={inputClassPaper + " w-full md:w-auto"} value={formData.mother_maiden_name} onChange={(e) => handleInputChange('mother_maiden_name', e.target.value)} />
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row md:items-end gap-1 md:gap-0">
+                                            <span className="md:mr-2">Last name of mother at time of birth:</span>
+                                            <input type="text" className={inputClassPaper + " w-full md:w-auto"} value={formData.mother_last_name_at_birth} onChange={(e) => handleInputChange('mother_last_name_at_birth', e.target.value)} />
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-0">
+                                            <div className="flex flex-col md:flex-row md:items-end gap-1 md:gap-0 grow">
+                                                <span className="md:mr-2">Next older brother or sister:</span>
+                                                <input type="text" className={inputClassPaper + " w-full md:w-auto"} value={formData.older_sibling} onChange={(e) => handleInputChange('older_sibling', e.target.value)} />
+                                            </div>
+                                            <div className="flex flex-col md:flex-row md:items-end gap-1 md:gap-0 w-full md:w-auto mt-2 md:mt-0">
+                                                <span className="md:ml-4 md:mr-2">Younger:</span>
+                                                <input type="text" className={inputClassPaper + " w-full md:w-48 md:flex-none"} value={formData.younger_sibling} onChange={(e) => handleInputChange('younger_sibling', e.target.value)} />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row md:items-end gap-1 md:gap-0">
+                                            <span className="md:mr-2">Signature of person making request:</span>
+                                            <input type="text" className={inputClassPaper + " w-full md:w-auto text-slate-500 bg-slate-50 pointer-events-none"} style={{ fontFamily: 'Brush Script MT, cursive', fontSize: '18px' }} value={formData.mail_name} disabled />
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row md:items-end gap-1 md:gap-0">
+                                            <span className="md:mr-2">Relationship:</span>
+                                            <input type="text" className={inputClassPaper + " w-full md:w-auto"} value={formData.relationship} onChange={(e) => handleInputChange('relationship', e.target.value)} />
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row md:items-end gap-1 md:gap-0">
+                                            <span className="md:mr-2">Purpose of copy:</span>
+                                            <input type="text" className={inputClassPaper + " w-full md:w-auto"} value={formData.purpose} onChange={(e) => handleInputChange('purpose', e.target.value)} />
+                                        </div>
+
+                                        <div className="pt-2">
+                                            <span className="block mb-2">Telephone number and email where you may be reached for additional information:</span>
+                                            <div className="flex flex-col md:flex-row md:items-end gap-2 md:gap-0">
+                                                <div className="flex items-end w-full md:w-auto">
+                                                    <span className="mr-1 font-normal">(</span>
+                                                    <input type="text" className={inputClassPaper + " grow md:w-40 text-center"} value={formData.phone} onChange={(e) => handleInputChange('phone', e.target.value)} />
+                                                    <span className="ml-1 md:mr-4 font-normal">)</span>
+                                                </div>
+                                                <input type="text" className={inputClassPaper + " w-full md:w-auto"} value={formData.email} onChange={(e) => handleInputChange('email', e.target.value)} />
+                                            </div>
+                                        </div>
+
+                                        <div className="text-center font-bold text-xs mt-6 pt-2">
+                                            IT IS UNLAWFUL TO WILLFULLY AND KNOWINGLY MAKE ANY FALSE STATEMENT ON THIS APPLICATION.
+                                        </div>
+
+                                        <div className="text-xs font-bold underline mt-3">
+                                            Records are filed in this office for the past 100 years: and over 100 years are available at the TN State Library and Archives.
+                                        </div>
+
+                                        <div className="text-[11px] font-normal text-justify mt-4 leading-relaxed">
+                                            A fee of $15.00 is charged for the search of the records and includes one copy of the record if located. Search fees are non-refundable if the record is not on file. All items must be completed and appropriate fees attached to process this request. Do not send cash. Send check or money order payable to: Tennessee Vital Records. <strong><u>In addition, unless this application is notarized, you must send a photocopy of a VALID government issued ID showing your signature.</u></strong> If you have not received a response within 45 days, please write or call Tennessee Vital Records at (615) 741-1763.
+                                        </div>
+
+                                        <div className="border-t border-dashed border-black my-5"></div>
+
+                                        <div className="text-center text-xs mb-4">
+                                            PRINT NAME AND ADDRESS BELOW FOR OUR RECORDS<br />
+                                            <strong className="text-[15px]">Please remember to include the Fee and a Copy of your ID.</strong> <span className="font-normal italic text-[10px] md:inline block">(Note: The request will be returned if not included.)</span>
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row justify-between mt-6 gap-6 md:gap-0">
+                                            <div className="w-full md:w-[60%] space-y-4">
+                                                <div className="flex flex-col">
+                                                    <div className="border-b-2 border-slate-300 w-full pb-1 px-1 font-normal font-mono text-[13px] text-slate-500">{formData.mail_name}</div>
+                                                    <span className="text-[10px] font-bold mt-1">Name</span>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <div className="border-b-2 border-slate-300 w-full pb-1 px-1 font-normal font-mono text-[13px] text-slate-500">{formData.mail_address}</div>
+                                                    <span className="text-[10px] font-bold mt-1">Address or Route</span>
+                                                </div>
+                                                <div className="flex gap-4">
+                                                    <div className="flex flex-col grow">
+                                                        <div className="border-b-2 border-slate-300 w-full pb-1 px-1 font-normal font-mono text-[13px] text-slate-500">{formData.mail_city_state}</div>
+                                                        <span className="text-[10px] font-bold mt-1">City and State</span>
+                                                    </div>
+                                                    <div className="flex flex-col w-32 md:w-32">
+                                                        <div className="border-b-2 border-slate-300 w-full pb-1 px-1 font-normal font-mono text-[13px] text-slate-500">{formData.mail_zip}</div>
+                                                        <span className="text-[10px] font-bold mt-1">Zip Code</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="w-full md:w-[35%] text-center text-[13px] font-bold bg-slate-50 md:bg-transparent p-4 md:p-0 rounded-lg">
+                                                <u>Mail Your Application To:</u><br /><br />
+                                                Tennessee Vital Records<br />
+                                                Andrew Johnson Tower, 1<sup>st</sup> Floor<br />
+                                                710 James Robertson Parkway<br />
+                                                Nashville, TN 37243
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* WHAT HAPPENS NEXT TIMELINE */}
-                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                    <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block border-b border-slate-100 pb-1.5">
-                                        PROCESS TIMELINE & EXPECTED DELIVERIES
-                                    </span>
-
-                                    <div className="space-y-4 pt-1">
-                                        <div className="flex gap-3">
-                                            <div className="flex flex-col items-center shrink-0">
-                                                <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-black shadow-xs">✓</div>
-                                                <div className="w-0.5 h-8 bg-emerald-200"></div>
-                                            </div>
-                                            <div className="space-y-0.5">
-                                                <h4 className="text-xs font-extrabold text-[#0b2545]">Step 1: Secure Data Validation & Fee Paid</h4>
-                                                <p className="text-[10px] text-slate-500 font-medium">Your credentials have been securely verified against state registry prerequisites.</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex gap-3">
-                                            <div className="flex flex-col items-center shrink-0">
-                                                <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px] font-black animate-pulse shadow-xs">2</div>
-                                                <div className="w-0.5 h-8 bg-slate-200"></div>
-                                            </div>
-                                            <div className="space-y-0.5">
-                                                <h4 className="text-xs font-extrabold text-blue-600">Step 2: Document Packaging (Current)</h4>
-                                                <p className="text-[10px] text-slate-500 font-medium">Our processors are generating your physical applications, certified state cover letters, and packaging folders.</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex gap-3">
-                                            <div className="flex flex-col items-center shrink-0">
-                                                <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 text-slate-400 flex items-center justify-center text-[10px] font-black">3</div>
-                                            </div>
-                                            <div className="space-y-0.5">
-                                                <h4 className="text-xs font-extrabold text-slate-400">Step 3: State Registry Dispatch & Delivery</h4>
-                                                <p className="text-[10px] text-slate-400 font-medium">Dispatching to {formData.eventState} State Registry. Standard delivery estimated within {formData.processingSpeed === 'expedited' ? '4-5 business days' : '2-3 weeks'}.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* SECURE BUTTON ACTIONS */}
-                                <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                                    <button
-                                        onClick={handleReDownload}
-                                        className="flex-1 bg-white hover:bg-slate-50 text-[#0b2545] border border-slate-200 hover:border-slate-300 font-bold text-xs py-3 px-6 rounded-xl transition-all shadow-2xs cursor-pointer flex items-center justify-center gap-2"
-                                    >
-                                        <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        Download PDF Summary Again
-                                    </button>
-                                    <Link
-                                        href="/"
-                                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3 px-6 rounded-xl transition-all shadow-md shadow-blue-500/10 text-center cursor-pointer flex items-center justify-center gap-2"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                                        </svg>
-                                        Return to Homepage
-                                    </Link>
-                                </div>
-
                             </div>
                         </div>
+                    )}
 
+                    {/* ERROR MESSAGE DISPLAY */}
+                    {formError && (
+                        <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-bold px-6 py-3 rounded-xl flex items-center justify-center gap-2 mt-6 animate-fade-in mx-auto w-fit shadow-sm">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            {formError}
+                        </div>
+                    )}
+
+                    {/* NAVIGATION BUTTONS */}
+                    <div className="bg-slate-50 p-4 md:p-6 border-t border-slate-100 flex justify-between items-center rounded-b-2xl mt-4 shadow-[0_-5px_15px_-10px_rgba(0,0,0,0.05)]">
+                        {step > 1 ? (
+                            <button onClick={prevStep} disabled={isSubmitting} className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors py-2 px-4">
+                                &lt; Back
+                            </button>
+                        ) : (
+                            <div />
+                        )}
+
+                        {step < 3 ? (
+                            <button onClick={nextStep} className="btn-primary py-2.5 px-8 text-xs font-bold shadow-md shadow-blue-500/20">
+                                {step === 1 ? 'Proceed to Payment >' : 'Pay & Access Form >'}
+                            </button>
+                        ) : (
+                            <button onClick={handleSubmit} disabled={isSubmitting} className="btn-primary bg-green-600 hover:bg-green-700 py-2.5 px-8 text-xs font-bold shadow-md shadow-green-500/20 flex items-center gap-2 disabled:opacity-70">
+                                {isSubmitting ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        Generating Official PDF...
+                                    </>
+                                ) : (
+                                    'Submit Official Application >'
+                                )}
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* SECURE SUBMISSION LOADING OVERLAY */}
-                {isSubmitting && (
-                    <div className="fixed inset-0 bg-[#0f172a]/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center space-y-6 shadow-2xl border border-slate-100">
-                            <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
-                                <div className="absolute inset-0 rounded-full border-4 border-slate-100"></div>
-                                <div className="absolute inset-0 rounded-full border-4 border-t-blue-500 border-r-blue-500 animate-spin"></div>
-                                <svg className="w-6 h-6 text-blue-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                </svg>
+                {/* STEP 4: SUCCESS / DOWNLOAD */}
+                <div className={`transition-all duration-700 ease-in-out origin-top ${step === 4 ? 'scale-100 opacity-100' : 'scale-95 opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
+                    {step === 4 && submissionDetails && (
+                        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-8 md:p-14 text-center space-y-6">
+                            <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner">
+                                ✓
                             </div>
                             <div className="space-y-2">
-                                <h3 className="text-base font-black text-[#0b2545]">Processing Secure Payment</h3>
-                                <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-                                    Authorizing secure transaction and generating your official PDF summary using Puppeteer. Please do not close or refresh this page.
+                                <h2 className="text-3xl font-black text-[#0b2545] tracking-tight">Application Generated!</h2>
+                                <p className="text-sm font-medium text-slate-500 max-w-md mx-auto">
+                                    Your official Tennessee Department of Health application has been beautifully generated. Please download, print, sign, and mail it along with a copy of your valid ID.
                                 </p>
                             </div>
-                            <div className="flex items-center gap-1.5 justify-center text-[10px] text-emerald-600 font-bold bg-emerald-50 py-1.5 px-3 rounded-full border border-emerald-100">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                Secure Payment Gateway Verified
+
+                            <div className="bg-[#f8fafc] p-4 rounded-xl border border-slate-200 inline-block text-left mb-4">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Submission Reference</p>
+                                <p className="text-sm font-bold text-[#0f172a]">{submissionDetails.id}</p>
+                            </div>
+
+                            <div>
+                                <button onClick={handleDownload} className="btn-primary py-3 px-8 text-xs font-bold shadow-md shadow-blue-500/20 flex items-center gap-2 mx-auto">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                    Download Official PDF
+                                </button>
+                                <Link href="/" className="block mt-6 text-xs font-bold text-slate-400 hover:text-slate-600">
+                                    Return to Home
+                                </Link>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
 
             </div>
         </div>

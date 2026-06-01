@@ -4,40 +4,59 @@ import fs from 'fs/promises';
 import path from 'path';
 import { getDb } from '../../../lib/db';
 import { getSessionUser } from '../../../lib/auth';
+import { Resend } from 'resend';
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
+        
+        // Exclude credit card details explicitly (never save or process them beyond payment gateway)
         const {
             submissionId,
-            submissionDate,
-            certType,
-            reason,
-            applicantName,
-            applicantEmail,
-            applicantPhone,
+            submissionDate, // The 'Date' at the top
+            
+            number_of_copies,
+            paternity_copies,
+            
+            first_name,
+            middle_name,
+            last_name,
+            
+            name_changed,
+            original_name,
+            
+            dob_month,
+            dob_day,
+            dob_year,
+            sex,
+            
+            birth_city,
+            birth_county,
+            birth_state,
+            birth_country,
+            
+            hospital,
+            father_name,
+            mother_maiden_name,
+            mother_last_name_at_birth,
+            older_sibling,
+            younger_sibling,
+            
+            signature, // The form asks for signature
             relationship,
-            subjectName,
-            eventDay,
-            eventMonth,
-            eventYear,
-            eventCity,
-            eventState,
-            fatherName,
-            motherName,
-            shipStreet,
-            shipCity,
-            shipState,
-            shipZip,
-            shipCountry,
-            shippingMethod,
-            processingSpeed,
-            fees
+            purpose,
+            
+            phone,
+            email,
+            
+            mail_name,
+            mail_address,
+            mail_city_state,
+            mail_zip
         } = body;
 
-        // Form event date beautifully
-        const eventDate = `${eventMonth} ${eventDay}, ${eventYear}`;
-        
         // Launch headless browser
         const browser = await puppeteer.launch({
             headless: true,
@@ -45,473 +64,365 @@ export async function POST(req: Request) {
         });
         const page = await browser.newPage();
 
-        // High quality premium invoice template
+        // Exact reproduction of the TN Application Form
         const htmlContent = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>Order Receipt - ${submissionId}</title>
+            <title>TN Certificate Application</title>
             <style>
-                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+                @import url('https://fonts.googleapis.com/css2?family=Arial:wght@400;700&display=swap');
                 
-                * {
-                    box-sizing: border-box;
-                    margin: 0;
-                    padding: 0;
-                }
+                * { box-sizing: border-box; margin: 0; padding: 0; }
 
                 body {
-                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                    color: #1e293b;
-                    background-color: #ffffff;
-                    line-height: 1.4;
-                    padding: 0;
-                }
-
-                .invoice-container {
-                    max-width: 800px;
+                    font-family: Arial, sans-serif;
+                    color: #000;
+                    background-color: #fff;
+                    width: 8.5in;
+                    height: 11in;
                     margin: 0 auto;
-                    padding: 5px;
+                    padding: 0.3in 0.4in;
+                    line-height: 1.15;
+                    box-sizing: border-box;
                 }
 
                 .header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    border-bottom: 2px solid #f1f5f9;
-                    padding-bottom: 12px;
-                    margin-bottom: 15px;
+                    text-align: center;
+                    margin-bottom: 25px;
                 }
 
-                .logo-section {
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                }
-
-                .logo-text {
-                    font-size: 16px;
-                    font-weight: 900;
-                    letter-spacing: -0.025em;
-                    color: #0b2545;
-                }
-
-                .logo-tagline {
-                    font-size: 9px;
-                    color: #64748b;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                    margin-top: -2px;
-                }
-
-                .title-section {
-                    text-align: right;
-                }
-
-                .title-section h1 {
-                    font-size: 18px;
-                    font-weight: 800;
-                    color: #2563eb;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                    margin-bottom: 3px;
-                }
-
-                .meta-badge {
-                    display: inline-block;
-                    background-color: #ecfdf5;
-                    color: #047857;
-                    font-size: 8px;
-                    font-weight: 800;
-                    padding: 2px 6px;
-                    border-radius: 9999px;
-                    text-transform: uppercase;
-                    margin-bottom: 3px;
-                }
-
-                .meta-text {
-                    font-size: 10px;
-                    color: #475569;
-                    font-weight: 500;
-                }
-
-                .meta-text strong {
-                    color: #0f172a;
-                }
-
-                /* GRID LAYOUTS */
-                .grid-2 {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 15px;
-                    margin-bottom: 15px;
-                }
-
-                .card {
-                    background-color: #f8fafc;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 10px;
-                    padding: 12px 15px;
-                }
-
-                .card-title {
-                    font-size: 9px;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    color: #94a3b8;
-                    letter-spacing: 0.08em;
-                    margin-bottom: 6px;
-                    border-bottom: 1px solid #e2e8f0;
-                    padding-bottom: 4px;
-                }
-
-                .info-row {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 4px;
-                    font-size: 11px;
-                }
-
-                .info-row:last-child {
-                    margin-bottom: 0;
-                }
-
-                .info-label {
-                    color: #64748b;
-                    font-weight: 600;
-                }
-
-                .info-value {
-                    color: #0f172a;
-                    font-weight: 700;
-                    text-align: right;
-                }
-
-                /* FULL WIDTH DETAILS CARD */
-                .section-title {
-                    font-size: 11px;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    color: #0b2545;
-                    letter-spacing: 0.05em;
-                    margin-bottom: 10px;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                }
-
-                .section-title::after {
-                    content: '';
-                    flex-grow: 1;
-                    height: 1px;
-                    background-color: #e2e8f0;
-                }
-
-                .details-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr 1fr;
-                    gap: 10px;
-                    margin-bottom: 15px;
-                    background-color: #ffffff;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 10px;
-                    padding: 12px 15px;
-                }
-
-                .detail-item {
-                    display: flex;
-                    flex-direction: column;
-                }
-
-                .detail-label {
-                    font-size: 8px;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    color: #94a3b8;
-                    letter-spacing: 0.05em;
+                .header h1 {
+                    font-size: 14px;
+                    font-weight: bold;
                     margin-bottom: 2px;
                 }
-
-                .detail-value {
-                    font-size: 11px;
-                    font-weight: 700;
-                    color: #0f172a;
-                }
-
-                /* COST TABLE */
-                .cost-table {
-                    width: 100%;
-                    border-collapse: collapse;
+                .header h2 {
+                    font-size: 13px;
+                    font-weight: normal;
                     margin-bottom: 15px;
                 }
-
-                .cost-table th {
-                    text-align: left;
-                    font-size: 9px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                    color: #64748b;
-                    font-weight: 700;
-                    padding: 6px 12px;
-                    border-bottom: 2px solid #e2e8f0;
-                    background-color: #f8fafc;
+                .header h3 {
+                    font-size: 14px;
+                    font-weight: bold;
+                    margin-bottom: 2px;
                 }
-
-                .cost-table td {
-                    padding: 8px 12px;
+                .header h4 {
                     font-size: 11px;
-                    color: #334155;
-                    border-bottom: 1px solid #f1f5f9;
+                    font-weight: normal;
                 }
 
-                .cost-table tr:last-of-type td {
-                    border-bottom: none;
-                }
 
-                .cost-table .text-right {
-                    text-align: right;
-                }
 
-                .cost-table .font-bold {
-                    font-weight: 700;
-                    color: #0f172a;
-                }
-
-                .total-box-container {
+                .row {
                     display: flex;
-                    justify-content: flex-end;
-                    margin-top: 5px;
+                    align-items: flex-end;
+                    margin-bottom: 15px;
+                    width: 100%;
                 }
 
-                .total-box {
-                    background-color: #eff6ff;
-                    border: 1px solid #bfdbfe;
-                    border-radius: 10px;
-                    padding: 8px 16px;
-                    width: 250px;
+                .row-label {
+                    font-size: 12px;
+                    font-weight: bold;
+                    white-space: nowrap;
+                    padding-right: 5px;
                 }
 
-                .total-row {
+                .underline-field {
+                    border-bottom: 1px solid #000;
+                    flex-grow: 1;
+                    font-family: monospace;
+                    font-size: 13px;
+                    padding-left: 5px;
+                    padding-bottom: 1px;
+                    line-height: 1;
+                }
+
+                .flex-col {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    position: relative;
+                }
+                
+                .sub-label {
+                    font-size: 10px;
+                    font-weight: normal;
+                    position: absolute;
+                    top: 100%;
+                    white-space: nowrap;
+                    margin-top: 2px;
+                }
+
+                .checkbox-container {
+                    display: flex;
+                    align-items: center;
+                    gap: 15px;
+                    margin-left: 10px;
+                }
+                .checkbox {
+                    width: 12px; height: 12px;
+                    border: 1px solid #000;
+                    display: inline-block;
+                    text-align: center;
+                    line-height: 12px;
+                    font-size: 10px;
+                }
+
+                .info-box {
+                    margin-top: 15px;
+                    font-size: 10px;
+                    text-align: justify;
+                }
+                
+                .info-box strong { font-weight: bold; }
+                
+                .dashed-line {
+                    border-top: 1px dashed #000;
+                    margin: 10px 0;
+                }
+
+                .footer-box {
                     display: flex;
                     justify-content: space-between;
-                    align-items: center;
+                    margin-top: 10px;
                 }
 
-                .total-label {
-                    font-size: 11px;
-                    font-weight: 800;
-                    color: #1e3a8a;
-                    text-transform: uppercase;
+                .address-block {
+                    width: 60%;
                 }
 
-                .total-price {
-                    font-size: 16px;
-                    font-weight: 900;
-                    color: #2563eb;
-                }
-
-                /* FOOTER */
-                .footer {
-                    margin-top: 15px;
-                    border-top: 1px solid #f1f5f9;
-                    padding-top: 10px;
+                .mail-to-block {
+                    width: 35%;
                     text-align: center;
-                    font-size: 9px;
-                    color: #94a3b8;
-                    font-weight: 500;
+                    font-size: 12px;
+                    font-weight: bold;
                 }
 
-                .footer-email {
-                    color: #2563eb;
-                    font-weight: 600;
-                    text-decoration: none;
-                }
             </style>
         </head>
         <body>
-            <div class="invoice-container">
-                
-                <!-- HEADER -->
-                <div class="header">
-                    <div class="logo-section">
-                        <div style="background-color: #2563eb; width: 12px; height: 28px; border-radius: 3px;"></div>
-                        <div>
-                            <div class="logo-text">ORDER VITAL RECORDS</div>
-                            <div class="logo-tagline">Secure Document Prep Service</div>
-                        </div>
-                    </div>
-                    
-                    <div class="title-section">
-                        <h1>Order Receipt</h1>
-                        <div class="meta-badge">Successful Payment</div>
-                        <div class="meta-text">ID: <strong>${submissionId}</strong></div>
-                        <div class="meta-text">Date: <strong>${submissionDate}</strong></div>
-                    </div>
-                </div>
-
-                <!-- INFO GRID -->
-                <div class="grid-2">
-                    <!-- APPLICANT INFO -->
-                    <div class="card">
-                        <div class="card-title">Applicant Contact Information</div>
-                        <div class="info-row">
-                            <span class="info-label">Full Name:</span>
-                            <span class="info-value">${applicantName}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Email Address:</span>
-                            <span class="info-value">${applicantEmail}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Mobile Phone:</span>
-                            <span class="info-value">${applicantPhone}</span>
-                        </div>
-                    </div>
-
-                    <!-- SHIPPING DETAILS -->
-                    <div class="card">
-                        <div class="card-title">Shipping & Delivery Details</div>
-                        <div class="info-row">
-                            <span class="info-label">Street Address:</span>
-                            <span class="info-value">${shipStreet}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">City, State & Zip:</span>
-                            <span class="info-value">${shipCity}, ${shipState} ${shipZip}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Country:</span>
-                            <span class="info-value">${shipCountry}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- RECORD OBJECT DETAILS -->
-                <div class="section-title">Certificate Subject & Event Details</div>
-                <div class="details-grid">
-                    <div class="detail-item">
-                        <span class="detail-label">Certificate Type</span>
-                        <span class="detail-value" style="color: #2563eb;">${certType} Certificate</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Relationship</span>
-                        <span class="detail-value">${relationship}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Reason for Request</span>
-                        <span class="detail-value">${reason}</span>
-                    </div>
-
-                    <div class="detail-item">
-                        <span class="detail-label">Subject's Full Name</span>
-                        <span class="detail-value">${subjectName}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Event City / County</span>
-                        <span class="detail-value">${eventCity}, ${eventState}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Date of Event</span>
-                        <span class="detail-value">${eventDate}</span>
-                    </div>
-
-                    <div class="detail-item" style="grid-column: span 1.5;">
-                        <span class="detail-label">Father's Full Name</span>
-                        <span class="detail-value">${fatherName || 'N/A'}</span>
-                    </div>
-                    <div class="detail-item" style="grid-column: span 1.5;">
-                        <span class="detail-label">Mother's Maiden Name</span>
-                        <span class="detail-value">${motherName || 'N/A'}</span>
-                    </div>
-                </div>
-
-                <!-- COST BREAKDOWN -->
-                <div class="section-title">Order Cost Breakdown</div>
-                <table class="cost-table">
-                    <thead>
-                        <tr>
-                            <th>Item Description</th>
-                            <th>Quantity</th>
-                            <th class="text-right">Unit Price</th>
-                            <th class="text-right">Total Price</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="font-bold">${certType} Certificate Fee (${eventState})</td>
-                            <td>1</td>
-                            <td class="text-right">$${fees.stateFee.toFixed(2)}</td>
-                            <td class="text-right font-bold">$${fees.stateFee.toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                            <td>Platform Document Preparation & Management Fee</td>
-                            <td>1</td>
-                            <td class="text-right">$${fees.platformFee.toFixed(2)}</td>
-                            <td class="text-right font-bold">$${fees.platformFee.toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                            <td>Shipping Delivery fee (${shippingMethod === 'express' ? 'Express / Overnight' : 'Standard Delivery'})</td>
-                            <td>1</td>
-                            <td class="text-right">$${fees.shippingCost.toFixed(2)}</td>
-                            <td class="text-right font-bold">$${fees.shippingCost.toFixed(2)}</td>
-                        </tr>
-                        ${fees.processingCost > 0 ? `
-                        <tr>
-                            <td>Expedited Fast-Track Processing Speed Add-on</td>
-                            <td>1</td>
-                            <td class="text-right">$${fees.processingCost.toFixed(2)}</td>
-                            <td class="text-right font-bold">$${fees.processingCost.toFixed(2)}</td>
-                        </tr>
-                        ` : ''}
-                    </tbody>
-                </table>
-
-                <!-- TOTAL BOX -->
-                <div class="total-box-container">
-                    <div class="total-box">
-                        <div class="total-row">
-                            <span class="total-label">Total Amount Paid</span>
-                            <span class="total-price">$${fees.total.toFixed(2)}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FOOTER -->
-                <div class="footer">
-                    <p style="margin-bottom: 5px;">Order Vital Records is a private document preparation service and is not affiliated with any U.S. government agency.</p>
-                    <p>For support or status inquiries, please contact us at <a class="footer-email" href="mailto:support@ordervitalrecords.com">support@ordervitalrecords.com</a></p>
-                    <p style="margin-top: 15px; font-size: 8px;">Submission ID: ${submissionId} | Transaction Securely Processed via Mock Gateway.</p>
-                </div>
-
+            <div class="header">
+                <h1>TENNESSEE DEPARTMENT OF HEALTH</h1>
+                <h2>OFFICE OF VITAL RECORDS</h2>
+                <h3>APPLICATION FOR CERTIFIED COPY OF A TENNESSEE CERTIFICATE OF LIVE BIRTH</h3>
+                <h4>(La versión en español al reverso de la página)</h4>
             </div>
+
+            <!-- Top Section -->
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div style="width: 45%; padding-top: 15px;">
+                    <div class="row">
+                        <span class="row-label">Date:</span>
+                        <div class="underline-field">${submissionDate}</div>
+                    </div>
+                </div>
+                <div style="width: 50%; text-align: right; font-size: 11px; font-weight: bold; line-height: 1.4;">
+                    <div>
+                        Number of Copies <span style="border-bottom:1px solid #000; padding:0 15px;">${number_of_copies}</span>
+                    </div>
+                    <div>Enclose $15.00 for each copy</div>
+                    <div style="margin-top: 3px;">
+                        <span style="border-bottom:1px solid #000; padding:0 10px;">${paternity_copies > 0 ? paternity_copies : ''}</span> Copy of Voluntary Acknowledgment of Paternity - $5.00 each copy
+                    </div>
+                    <div style="font-size: 9px; font-weight: normal;">(When purchased with a certified copy of the birth certificate.)</div>
+                </div>
+            </div>
+
+            <!-- Form Fields -->
+            <div class="row">
+                <span class="row-label">Full name on birth certificate:</span>
+                <div class="flex-col" style="flex-grow: 1;">
+                    <div class="underline-field" style="width: 100%;">${first_name}</div>
+                    <span class="sub-label">First</span>
+                </div>
+                <div class="flex-col" style="flex-grow: 1; margin-left: 10px;">
+                    <div class="underline-field" style="width: 100%;">${middle_name}</div>
+                    <span class="sub-label">Middle</span>
+                </div>
+                <div class="flex-col" style="flex-grow: 1; margin-left: 10px;">
+                    <div class="underline-field" style="width: 100%;">${last_name}</div>
+                    <span class="sub-label">Last Name</span>
+                </div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">Has the name ever been changed other than by marriage?</span>
+                <div class="checkbox-container">
+                    <div class="checkbox">${name_changed ? 'X' : ''}</div> Yes
+                    <div class="checkbox">${!name_changed ? 'X' : ''}</div> No
+                </div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">If yes, what was original name?</span>
+                <div class="underline-field">${original_name || ''}</div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">Date of birth:</span>
+                <div class="flex-col" style="width: 15%;">
+                    <div class="underline-field" style="width: 100%; text-align: center;">${dob_month}</div>
+                    <span class="sub-label">Month</span>
+                </div>
+                <div class="flex-col" style="width: 15%; margin-left: 10px;">
+                    <div class="underline-field" style="width: 100%; text-align: center;">${dob_day}</div>
+                    <span class="sub-label">Day</span>
+                </div>
+                <div class="flex-col" style="width: 20%; margin-left: 10px;">
+                    <div class="underline-field" style="width: 100%; text-align: center;">${dob_year}</div>
+                    <span class="sub-label">Year</span>
+                </div>
+                <span class="row-label" style="margin-left: 30px;">Sex:</span>
+                <div class="underline-field">${sex}</div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">Place of birth:</span>
+                <div class="flex-col" style="width: 25%;">
+                    <div class="underline-field" style="width: 100%;">${birth_city}</div>
+                    <span class="sub-label">City</span>
+                </div>
+                <div class="flex-col" style="width: 20%; margin-left: 10px;">
+                    <div class="underline-field" style="width: 100%;">${birth_county}</div>
+                    <span class="sub-label">County</span>
+                </div>
+                <div class="flex-col" style="width: 15%; margin-left: 10px;">
+                    <div class="underline-field" style="width: 100%;">${birth_state}</div>
+                    <span class="sub-label">State</span>
+                </div>
+                <div class="flex-col" style="flex-grow: 1; margin-left: 10px;">
+                    <div class="underline-field" style="width: 100%;">${birth_country !== 'USA' && birth_country !== 'United States' ? birth_country : ''}</div>
+                    <span class="sub-label">Foreign Country (if Report of Foreign Birth)</span>
+                </div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">Hospital where birth occurred:</span>
+                <div class="underline-field">${hospital}</div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">Full name of father:</span>
+                <div class="underline-field">${father_name}</div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">Full maiden name of mother:</span>
+                <div class="underline-field">${mother_maiden_name}</div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">Last name of mother at time of birth:</span>
+                <div class="underline-field">${mother_last_name_at_birth}</div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">Next older brother or sister:</span>
+                <div class="underline-field" style="flex-grow: 0; width: 35%;">${older_sibling}</div>
+                <span class="row-label" style="margin-left: 15px;">Younger:</span>
+                <div class="underline-field">${younger_sibling}</div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">Signature of person making request:</span>
+                <div class="underline-field" style="font-family: 'Brush Script MT', cursive; font-size: 18px;">${mail_name}</div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">Relationship:</span>
+                <div class="underline-field">${relationship}</div>
+            </div>
+
+            <div class="row">
+                <span class="row-label">Purpose of copy:</span>
+                <div class="underline-field">${purpose}</div>
+            </div>
+
+            <div class="row">
+                <span class="row-label" style="display:block; width:100%;">Telephone number and email where you may be reached for additional information:</span>
+            </div>
+            <div class="row">
+                <div class="underline-field" style="width: 35%; flex-grow: 0;">${phone}</div>
+                <div class="underline-field" style="flex-grow: 1; margin-left: 20px;">${email}</div>
+            </div>
+
+            <div style="text-align: center; margin-top: 15px; font-weight: bold; font-size: 12px;">
+                IT IS UNLAWFUL TO WILLFULLY AND KNOWINGLY MAKE ANY FALSE STATEMENT ON THIS APPLICATION.
+            </div>
+            <div style="text-align: left; margin-top: 10px; font-weight: bold; font-size: 11px; text-decoration: underline;">
+                Records are filed in this office for the past 100 years: and over 100 years are available at the TN State Library and Archives.
+            </div>
+
+            <div class="info-box">
+                A fee of $15.00 is charged for the search of the records and includes one copy of the record if located. Search fees are non-refundable if the record is not on file. All items must be completed and appropriate fees attached to process this request. Do not send cash. Send check or money order payable to: Tennessee Vital Records. <strong><u>In addition, unless this application is notarized, you must send a photocopy of a VALID government issued ID showing your signature.</u></strong> If you have not received a response within 45 days, please write or call Tennessee Vital Records at (615) 741-1763.
+            </div>
+
+            <div class="dashed-line"></div>
+            
+            <div style="text-align: center; font-size: 12px;">
+                PRINT NAME AND ADDRESS BELOW FOR OUR RECORDS<br>
+                <strong style="font-size: 15px;">Please remember to include the Fee and a Copy of your ID.</strong>
+                <span style="font-style: italic; font-size: 10px;">(Note: The request will be returned if not included.)</span>
+            </div>
+
+            <div class="footer-box">
+                <div class="address-block">
+                    <div class="row" style="margin-bottom: 22px;">
+                        <div class="flex-col" style="width: 100%;">
+                            <div class="underline-field" style="width: 100%; border-bottom-width: 2px;">${mail_name}</div>
+                            <span class="sub-label" style="align-self: flex-start; font-weight:bold;">Name</span>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-bottom: 22px;">
+                        <div class="flex-col" style="width: 100%;">
+                            <div class="underline-field" style="width: 100%; border-bottom-width: 2px;">${mail_address}</div>
+                            <span class="sub-label" style="align-self: flex-start; font-weight:bold;">Address or Route</span>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-bottom: 22px;">
+                        <div class="flex-col" style="width: 65%;">
+                            <div class="underline-field" style="width: 100%; border-bottom-width: 2px;">${mail_city_state}</div>
+                            <span class="sub-label" style="align-self: flex-start; font-weight:bold;">City and State</span>
+                        </div>
+                        <div class="flex-col" style="width: 30%; margin-left: 5%;">
+                            <div class="underline-field" style="width: 100%; border-bottom-width: 2px;">${mail_zip}</div>
+                            <span class="sub-label" style="align-self: flex-start; font-weight:bold;">Zip Code</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mail-to-block">
+                    <u>Mail Your Application To:</u><br><br>
+                    Tennessee Vital Records<br>
+                    Andrew Johnson Tower, 1<sup>st</sup> Floor<br>
+                    710 James Robertson Parkway<br>
+                    Nashville, TN 37243
+                </div>
+            </div>
+
         </body>
         </html>
         `;
 
         await page.setContent(htmlContent, { waitUntil: 'load' as any });
 
-        // Generate high quality PDF page
+        // Generate PDF
         const pdfBuffer = await page.pdf({
             format: 'Letter',
             printBackground: true,
-            margin: {
-                top: '20px',
-                right: '20px',
-                bottom: '20px',
-                left: '20px'
-            }
+            margin: { top: '0in', right: '0in', bottom: '0in', left: '0in' }
         });
 
         await browser.close();
 
-        // 1. Save generated PDF to the filesystem inside public/submissions/
+        // 1. Save generated PDF to filesystem
         let pdfRelativePath = "";
         try {
             const submissionsDir = path.resolve(process.cwd(), 'public', 'submissions');
             await fs.mkdir(submissionsDir, { recursive: true });
-            const pdfFileName = `Receipt-${submissionId}.pdf`;
+            const pdfFileName = `Application-${submissionId}.pdf`;
             const pdfFilePath = path.join(submissionsDir, pdfFileName);
             await fs.writeFile(pdfFilePath, pdfBuffer);
             pdfRelativePath = `/submissions/${pdfFileName}`;
@@ -519,49 +430,60 @@ export async function POST(req: Request) {
             console.error("Failed to save PDF to filesystem:", fsError);
         }
 
-        // 2. Save complete submission details to the SQLite database
+        // 2. Save details to new SQLite Database structure
         const db = await getDb();
         try {
             const user = await getSessionUser();
             const userId = user ? user.id : null;
 
-            await db.run('BEGIN TRANSACTION');
-
-            // Insert into submissions
             await db.run(
-                `INSERT INTO submissions (id, user_id, cert_type, event_state, pdf_path) VALUES (?, ?, ?, ?, ?)`,
-                [submissionId, userId, certType, eventState, pdfRelativePath]
+                `INSERT INTO tn_birth_applications (
+                    id, user_id, date, number_of_copies, paternity_copies, first_name, middle_name, last_name, 
+                    name_changed, original_name, dob_month, dob_day, dob_year, sex, birth_city, birth_county, 
+                    birth_state, birth_country, hospital, father_name, mother_maiden_name, mother_last_name_at_birth, 
+                    older_sibling, younger_sibling, signature, relationship, purpose, phone, email, mail_name, 
+                    mail_address, mail_city_state, mail_zip, pdf_path
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    submissionId, userId, submissionDate, number_of_copies, paternity_copies, first_name, middle_name, last_name,
+                    name_changed ? 1 : 0, original_name, dob_month, dob_day, dob_year, sex, birth_city, birth_county,
+                    birth_state, birth_country, hospital, father_name, mother_maiden_name, mother_last_name_at_birth,
+                    older_sibling, younger_sibling, mail_name, relationship, purpose, phone, email, mail_name,
+                    mail_address, mail_city_state, mail_zip, pdfRelativePath
+                ]
             );
 
-            // Insert into certificate_details
-            await db.run(
-                `INSERT INTO certificate_details (submission_id, subject_name, event_date, event_city, father_name, mother_name) VALUES (?, ?, ?, ?, ?, ?)`,
-                [submissionId, subjectName, eventDate, eventCity, fatherName || null, motherName || null]
-            );
-
-            // Insert into shipping_details
-            await db.run(
-                `INSERT INTO shipping_details (submission_id, applicant_name, applicant_email, applicant_phone, relationship, address, city, state, zipcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [submissionId, applicantName, applicantEmail, applicantPhone, relationship, shipStreet, shipCity, shipState, shipZip]
-            );
-
-            // Insert into processing_options
-            await db.run(
-                `INSERT INTO processing_options (submission_id, processing_speed, shipping_speed) VALUES (?, ?, ?)`,
-                [submissionId, processingSpeed, shippingMethod]
-            );
-
-            await db.run('COMMIT');
         } catch (dbError) {
-            await db.run('ROLLBACK').catch(() => {});
-            // Log database error but do not block the user response, ensuring high resilience
             console.error("Database save error:", dbError);
+        }
+
+        // Send Email via Resend
+        if (resend) {
+            try {
+                await resend.emails.send({
+                    from: 'Tennessee Vital Records <onboarding@resend.dev>',
+                    to: email,
+                    subject: `Your Vital Records Application - ${submissionId}`,
+                    text: `Hello,\n\nAttached is your official Tennessee Vital Records application (${submissionId}).\n\nPlease print it, sign it, and mail it along with the required fee and ID as instructed on the form.\n\nThank you.`,
+                    attachments: [
+                        {
+                            filename: `Application-${submissionId}.pdf`,
+                            content: Buffer.from(pdfBuffer),
+                        }
+                    ]
+                });
+                console.log(`Email sent successfully to ${email}`);
+            } catch (emailError) {
+                console.error("Failed to send email via Resend:", emailError);
+            }
+        } else {
+            console.warn("RESEND_API_KEY is not set. Email was not sent.");
         }
 
         return new NextResponse(pdfBuffer as any, {
             headers: {
                 'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename="Receipt-${submissionId}.pdf"`,
+                'Content-Disposition': 'attachment; filename="Application-' + submissionId + '.pdf"',
                 'Content-Length': pdfBuffer.length.toString()
             }
         });
@@ -569,7 +491,7 @@ export async function POST(req: Request) {
     } catch (error: any) {
         console.error("PDF generation error:", error);
         return NextResponse.json(
-            { error: "Failed to generate professional PDF", details: error.message },
+            { error: "Failed to generate PDF", details: error.message },
             { status: 500 }
         );
     }
