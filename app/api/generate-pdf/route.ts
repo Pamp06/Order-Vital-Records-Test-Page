@@ -3,6 +3,7 @@ import puppeteer from 'puppeteer';
 import fs from 'fs/promises';
 import path from 'path';
 import { getDb } from '../../../lib/db';
+import { getSessionUser } from '../../../lib/auth';
 
 export async function POST(req: Request) {
     try {
@@ -519,45 +520,40 @@ export async function POST(req: Request) {
         }
 
         // 2. Save complete submission details to the SQLite database
+        const db = await getDb();
         try {
-            const db = await getDb();
+            const user = await getSessionUser();
+            const userId = user ? user.id : null;
 
-            const userInfo = JSON.stringify({
-                applicantName,
-                applicantEmail,
-                applicantPhone,
-                relationship,
-                subjectName,
-                fatherName,
-                motherName
-            });
+            await db.run('BEGIN TRANSACTION');
 
-            const shippingDetails = JSON.stringify({
-                shipStreet,
-                shipCity,
-                shipState,
-                shipZip,
-                shipCountry,
-                shippingMethod,
-                processingSpeed
-            });
-
-            const additionalDetails = JSON.stringify({
-                reason,
-                eventDay,
-                eventMonth,
-                eventYear,
-                eventCity,
-                eventState,
-                fees
-            });
-
+            // Insert into submissions
             await db.run(
-                `INSERT OR REPLACE INTO submissions (id, user_info, certificate_type, shipping_details, additional_details, pdf_path)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [submissionId, userInfo, certType, shippingDetails, additionalDetails, pdfRelativePath]
+                `INSERT INTO submissions (id, user_id, cert_type, event_state, pdf_path) VALUES (?, ?, ?, ?, ?)`,
+                [submissionId, userId, certType, eventState, pdfRelativePath]
             );
+
+            // Insert into certificate_details
+            await db.run(
+                `INSERT INTO certificate_details (submission_id, subject_name, event_date, event_city, father_name, mother_name) VALUES (?, ?, ?, ?, ?, ?)`,
+                [submissionId, subjectName, eventDate, eventCity, fatherName || null, motherName || null]
+            );
+
+            // Insert into shipping_details
+            await db.run(
+                `INSERT INTO shipping_details (submission_id, applicant_name, applicant_email, applicant_phone, relationship, address, city, state, zipcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [submissionId, applicantName, applicantEmail, applicantPhone, relationship, shipStreet, shipCity, shipState, shipZip]
+            );
+
+            // Insert into processing_options
+            await db.run(
+                `INSERT INTO processing_options (submission_id, processing_speed, shipping_speed) VALUES (?, ?, ?)`,
+                [submissionId, processingSpeed, shippingMethod]
+            );
+
+            await db.run('COMMIT');
         } catch (dbError) {
+            await db.run('ROLLBACK').catch(() => {});
             // Log database error but do not block the user response, ensuring high resilience
             console.error("Database save error:", dbError);
         }

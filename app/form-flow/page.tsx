@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import Header from '../../components/Header';
+import { useAuth } from '../../components/AuthProvider';
 
 export default function BirthFlowPage() {
     const [step, setStep] = useState(1);
@@ -11,6 +14,15 @@ export default function BirthFlowPage() {
         date: string;
         pdfBlobUrl: string | null;
     } | null>(null);
+
+    const { user, isLoading } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!isLoading && !user) {
+            router.push('/login');
+        }
+    }, [user, isLoading, router]);
 
     // FORM STATE
     const [formData, setFormData] = useState({
@@ -184,45 +196,20 @@ export default function BirthFlowPage() {
         }
     };
 
+    if (isLoading || !user) {
+        return (
+            <div className="min-h-screen bg-white flex flex-col items-center justify-center space-y-4">
+                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm font-bold text-slate-500 animate-pulse">Checking credentials...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-linear-to-b from-[#e0ebf8]/40 via-[#f4f8fc]/20 to-[#f4f8fc]/60 text-[#0f172a] font-sans antialiased pb-20">
 
             {/* HEADER/NAVBAR */}
-            <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-xs">
-                <div className="w-full max-w-none mx-0 px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative">
-
-                    {/* LOGO */}
-                    <Link href="/" className="flex items-center gap-2 select-none shrink-0 z-10 hover:opacity-90 transition-opacity">
-                        <img src="/flag-us.png" alt="ORDER VITAL RECORDS" className="h-6 object-contain" />
-                        <span className="text-base font-black tracking-tight text-[#0f172a] hidden sm:inline">
-                            ORDER VITAL RECORDS
-                        </span>
-                    </Link>
-
-                    {/* NAV BUTTONS */}
-                    <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 absolute left-1/2 -translate-x-1/2">
-                        <Link href="/certificates" className="hover:text-[#2563eb] transition-colors">
-                            Certificates
-                        </Link>
-                        <a href="#how-it-works" className="hover:text-[#2563eb] transition-colors">How It works</a>
-                        <a href="#states" className="hover:text-[#2563eb] transition-colors">Search States</a>
-                        <a href="#faq" className="hover:text-[#2563eb] transition-colors">Support</a>
-                        <a href="#benefits" className="hover:text-[#2563eb] transition-colors">Pricing</a>
-                        <a href="#contact" className="hover:text-[#2563eb] transition-colors">Contact</a>
-                    </nav>
-
-                    {/* RIGHT BUTTONS */}
-                    <div className="flex items-center gap-4 shrink-0 z-10">
-                        <Link href="/form" className="btn-primary py-2 px-4 text-xs font-bold shadow-xs">
-                            Start Order &gt;
-                        </Link>
-                        <span className="text-xs font-bold text-slate-600 cursor-pointer hover:text-[#2563eb] transition-colors">
-                            Log In &gt;
-                        </span>
-                    </div>
-
-                </div>
-            </header>
+            <Header />
 
             {/* FLOW CONTENT AREA */}
             <div className="max-w-4xl mx-auto px-4 pt-12 space-y-8 relative z-10">
@@ -281,7 +268,7 @@ export default function BirthFlowPage() {
                     >
 
                         {/* STEP 1 APPLICANT INFO & REQUEST TYPE */}
-                        <div className="w-1/5 shrink-0 px-2 sm:px-4 space-y-8">
+                        <div className={`w-1/5 shrink-0 px-2 sm:px-4 space-y-8 transition-all duration-500 delay-100 ${step === 1 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
                             <div className="text-center space-y-1">
                                 <h2 className="text-2xl font-black text-[#0b2545] tracking-tight">Applicant Info & Request Type</h2>
                                 <p className="text-slate-500 text-xs font-medium">Define your request details and your contact information</p>
@@ -453,7 +440,7 @@ export default function BirthFlowPage() {
                         </div>
 
                         {/* STEP 2: RECORD SUBJECT DETAILS */}
-                        <div className="w-1/5 shrink-0 px-2 sm:px-4 space-y-8">
+                        <div className={`w-1/5 shrink-0 px-2 sm:px-4 space-y-8 transition-all duration-500 delay-100 ${step === 2 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
                             <div className="text-center space-y-1">
                                 <h2 className="text-2xl font-black text-[#0b2545] tracking-tight">Record Subject Details</h2>
                                 <p className="text-slate-500 text-xs font-medium">Add details of the person named on the original certificate</p>
@@ -594,7 +581,7 @@ export default function BirthFlowPage() {
                         </div>
 
                         {/* STEP 3: SHIPPING & PROCESSING OPTIONS */}
-                        <div className="w-1/5 shrink-0 px-2 sm:px-4 space-y-8">
+                        <div className={`w-1/5 shrink-0 px-2 sm:px-4 space-y-8 transition-all duration-500 delay-100 ${step === 3 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
                             <div className="text-center space-y-1">
                                 <h2 className="text-2xl font-black text-[#0b2545] tracking-tight">Shipping & Processing Options</h2>
                                 <p className="text-slate-500 text-xs font-medium">Select your delivery details and processing speeds</p>
@@ -816,7 +803,7 @@ export default function BirthFlowPage() {
                         </div>
 
                         {/* STEP 4: REVIEW & CHECKOUT */}
-                        <div className="w-1/5 shrink-0 px-2 sm:px-4 space-y-8">
+                        <div className={`w-1/5 shrink-0 px-2 sm:px-4 space-y-8 transition-all duration-500 delay-100 ${step === 4 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
                             <div className="text-center space-y-1">
                                 <h2 className="text-2xl font-black text-[#0b2545] tracking-tight">Review & Checkout</h2>
                                 <p className="text-slate-500 text-xs font-medium">Verify your details and complete your secure vital record order</p>
@@ -947,9 +934,17 @@ export default function BirthFlowPage() {
                                         <input
                                             type="text"
                                             value={formData.cardNumber}
-                                            onChange={(e) => handleInputChange("cardNumber", e.target.value)}
+                                            onChange={(e) => {
+                                                let value = e.target.value.replace(/\D/g, '');
+                                                if (value.length > 16) {
+                                                    value = value.substring(0, 16);
+                                                }
+                                                let formattedValue = value.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+                                                handleInputChange("cardNumber", formattedValue);
+                                            }}
+                                            maxLength={19}
                                             placeholder="0000 0000 0000 0000"
-                                            className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0"
+                                            className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-hidden p-0 m-0 tracking-widest"
                                         />
                                     </div>
 
@@ -1026,7 +1021,7 @@ export default function BirthFlowPage() {
                         </div>
 
                         {/* STEP 5: ORDER SUCCESS SCREEN */}
-                        <div className="w-1/5 shrink-0 px-2 sm:px-4 space-y-8">
+                        <div className={`w-1/5 shrink-0 px-2 sm:px-4 space-y-8 transition-all duration-500 delay-100 ${step === 5 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
                             <div className="text-center space-y-2">
                                 <div className="mx-auto w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-100 shadow-xs mb-2 animate-bounce">
                                     <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
